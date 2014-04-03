@@ -69,9 +69,9 @@ namespace detail
     typename T,
     typename BinaryFunction >
 
-    typename std::enable_if< std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
+    typename std::enable_if< (std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
                                        bolt::cl::device_vector_tag
-                                     >::value
+                                     >::value), void
                        >::type
     transform_scan(
     ::bolt::cl::control &ctl, 
@@ -155,9 +155,9 @@ namespace detail
     typename UnaryFunction,
     typename T,
     typename BinaryFunction >
-   typename std::enable_if< std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
+   typename std::enable_if< (std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
                                        std::random_access_iterator_tag
-                                     >::value
+                                     >::value), void
                            >::type
     transform_scan( ::bolt::cl::control &ctl, 
     const InputIterator& first,
@@ -222,9 +222,9 @@ namespace btbb{
     typename T,
     typename BinaryFunction >
 
-    typename std::enable_if< std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
+    typename std::enable_if< (std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
                                        bolt::cl::device_vector_tag
-                                     >::value
+                                     >::value), void
                        >::type
     transform_scan(
     ::bolt::cl::control &ctl, 
@@ -281,9 +281,9 @@ namespace btbb{
     typename T,
     typename BinaryFunction >
 
-    typename std::enable_if< std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
+    typename std::enable_if< (std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
                                        bolt::cl::random_access_iterator_tag
-                                     >::value
+                                     >::value), void
                        >::type
     transform_scan(
     ::bolt::cl::control &ctl, 
@@ -811,7 +811,7 @@ transform_scan(
         #endif
         std::transform(first, last, result, unary_op);
         //Serial_Scan<oType, BinaryFunction, T>(&(*result), &(*result), numElements, binary_op,inclusive,init);
-		serial::transform_scan(ctl, first, last, result, unary_op, init, inclusive, binary_op);
+		serial::transform_scan(ctl, first, last, result, unary_op, init, binary_op, inclusive );
         return result + numElements;
     }
     else if( runMode == bolt::cl::control::MultiCoreCpu )
@@ -820,7 +820,7 @@ transform_scan(
 		     #if defined(BOLT_DEBUG_LOG)
              dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMSCAN,BOLTLOG::BOLT_MULTICORE_CPU,"::Transform_Scan::MULTICORE_CPU");
              #endif
-			 btbb::transform_scan(ctl, first, last, result, unary_op, init, inclusive, binary_op);
+			 btbb::transform_scan(ctl, first, last, result, unary_op, init, binary_op, inclusive );
 
         #else
                 throw std::runtime_error("The MultiCoreCpu version of Transform_scan is not enabled to be built! \n");
@@ -835,7 +835,7 @@ transform_scan(
         dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMSCAN,BOLTLOG::BOLT_OPENCL_GPU,"::Transform_Scan::OPENCL_GPU");
         #endif
 		
-		cl::transform_scan(ctl, first, last, result, unary_op, init, inclusive, binary_op);
+		cl::transform_scan(ctl, first, last, result, unary_op, init, binary_op, inclusive );
     }
     return result + numElements;
 };
