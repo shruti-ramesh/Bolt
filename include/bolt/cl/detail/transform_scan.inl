@@ -113,24 +113,24 @@ namespace detail
 
 		if(inclusive)
 		{
-		  mapped_result_itr = mapped_first_itr;
-          sum = mapped_first_itr[0];
+		  mapped_result_itr = (oType *) mapped_first_itr;
+          sum =  mapped_result_itr[0]; //mapped_first_itr[0];
         }
         else 
 		{
  
-		   temp = mapped_first_itr[0];
-		   mapped_result_itr = (oType) init;
+		   temp =  mapped_first_itr[0];
+		   mapped_result_itr[0] = (oType) init_T;
 		   sum = binary_op( mapped_result_itr[0], temp);
         }
 
-        for ( unsigned int index= 1; i<num; i++)
+        for ( unsigned int index= 1; index<sz; index++)
         {
           oType currentValue =  *(mapped_first_itr+index); 
           if (inclusive)
           {
               oType r = binary_op( sum, currentValue);
-			  *(mapped_result_itr + index) = r
+			  *(mapped_result_itr + index) = r;
               sum = r;
           }
           else // new segment
@@ -187,11 +187,11 @@ namespace detail
         else 
 		{
           temp = *first;
-          *result = (oType)init;
+          *result = (oType)init_T;
           sum = binary_op( *result, temp);  
         }
 
-        for ( unsigned int index= 1; i<num; i++)
+        for ( unsigned int index= 1; index<sz; index++)
         {
           oType currentValue =  *(first + index); // convertible
           if (inclusive)
@@ -202,7 +202,7 @@ namespace detail
           }
           else // new segment
           {
-              *(result + i) = sum;
+              *(result + index) = sum;
               sum = binary_op( sum, currentValue);
 		  
           }
