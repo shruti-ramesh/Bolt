@@ -60,7 +60,7 @@ namespace detail
 *   \{
 */
     
-	namespace serial{
+namespace serial{
 
     template<
     typename InputIterator,
@@ -79,9 +79,10 @@ namespace detail
     const InputIterator& last,
     const OutputIterator& result,
     const UnaryFunction& unary_op,
-    const T& init_T,
-    const BinaryFunction& binary_op,
-    const bool& inclusive = true)
+    const T& init,
+    const bool& inclusive,
+    const BinaryFunction& binary_op
+    )
   {
 	
 	    size_t sz = (last - first);
@@ -113,20 +114,20 @@ namespace detail
 
 		if(inclusive)
 		{
-		  mapped_result_itr = (oType *) mapped_first_itr;
+		  *mapped_result_itr = static_cast<oType>(unary_op(*mapped_first_itr) );
           sum =  mapped_result_itr[0]; //mapped_first_itr[0];
         }
         else 
 		{
  
-		   temp =  mapped_first_itr[0];
-		   mapped_result_itr[0] = (oType) init_T;
+		   temp =  static_cast<oType>( unary_op( mapped_first_itr[0] ) );
+		   mapped_result_itr[0] = static_cast<oType>( init );
 		   sum = binary_op( mapped_result_itr[0], temp);
         }
 
         for ( unsigned int index= 1; index<sz; index++)
         {
-          oType currentValue =  *(mapped_first_itr+index); 
+          oType currentValue =  static_cast<oType>( unary_op( *(mapped_first_itr+index) ) ); 
           if (inclusive)
           {
               oType r = binary_op( sum, currentValue);
@@ -137,7 +138,6 @@ namespace detail
           {
 			  *(mapped_result_itr + index) = sum;
               sum = binary_op( sum, currentValue);
-		  
           }
         }
 
@@ -164,9 +164,9 @@ namespace detail
     const InputIterator& last,
     const OutputIterator& result,
     const UnaryFunction& unary_op,
-    const T& init_T,
-    const BinaryFunction& binary_op,
-    const bool& inclusive = true)
+    const T& init,
+    const bool& inclusive,
+    const BinaryFunction& binary_op)
     {
         size_t sz = (last - first);
         if (sz == 0)
@@ -181,23 +181,23 @@ namespace detail
 
 		if(inclusive)
 		{
-          *result = *first; // assign value
+          *result = static_cast<oType>(unary_op( *first ) ); // assign value
           sum = *first;
         }
         else 
 		{
-          temp = *first;
-          *result = (oType)init_T;
+          temp = static_cast<oType>(unary_op( *first ) );
+          *result = (oType)init;
           sum = binary_op( *result, temp);  
         }
 
         for ( unsigned int index= 1; index<sz; index++)
         {
-          oType currentValue =  *(first + index); // convertible
+          oType currentValue =  static_cast<oType>(unary_op( *(first + index) ) ); // convertible
           if (inclusive)
           {
               oType r = binary_op( sum, currentValue);
-              *(first + index) = r;
+              *(result + index) = r;
               sum = r;
           }
           else // new segment
@@ -207,7 +207,6 @@ namespace detail
 		  
           }
         }
-
         return;
     }
 
@@ -232,9 +231,9 @@ namespace btbb{
     const InputIterator& last,
     const OutputIterator& result,
     const UnaryFunction& unary_op,
-    const T& init_T,
-    const BinaryFunction& binary_op,
-    const bool& inclusive = true)
+    const T& init,
+    const bool& inclusive,
+    const BinaryFunction& binary_op)
   {
     
         size_t sz = (last - first);
@@ -274,6 +273,7 @@ namespace btbb{
         return;
     }
 
+
 	template<
     typename InputIterator,
     typename OutputIterator,
@@ -282,7 +282,7 @@ namespace btbb{
     typename BinaryFunction >
 
     typename std::enable_if< (std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
-                                       bolt::cl::random_access_iterator_tag
+                                       std::random_access_iterator_tag
                                      >::value), void
                        >::type
     transform_scan(
@@ -291,17 +291,19 @@ namespace btbb{
     const InputIterator& last,
     const OutputIterator& result,
     const UnaryFunction& unary_op,
-    const T& init_T,
-    const BinaryFunction& binary_op,
-    const bool& inclusive = true)
+    const T& init,
+    const bool& inclusive,
+    const BinaryFunction& binary_op)
     {
         // TODO - Add tbb host vector code.
         bolt::btbb::transform(first, last, result, unary_op);
-
+        int sz = static_cast<int>( std::distance (first, last));
+        if (sz == 0)
+            return;
 		if(inclusive)
-			bolt::btbb::inclusive_scan( result, result  + (int)sz,  result, binary_op);
+			bolt::btbb::inclusive_scan( result, result  + sz,  result, binary_op);
 		else
-			bolt::btbb::exclusive_scan( result,  result  + (int)sz , result, init, binary_op);
+			bolt::btbb::exclusive_scan( result,  result  + sz , result, init, binary_op);
         return;
     }
 
@@ -396,8 +398,9 @@ transform_scan(
     const OutputIterator& result,
     const UnaryFunction& unary_op,
     const T& init_T,
+    const bool& inclusive,
     const BinaryFunction& binary_op,
-    const bool& inclusive = true)
+    const std::string& user_code)
 {
 #ifdef BOLT_ENABLE_PROFILING
 aProfiler.setName("transform_scan");
@@ -412,13 +415,13 @@ size_t k0_stepNum, k1_stepNum, k2_stepNum;
     /**********************************************************************************
      * Type Names - used in KernelTemplateSpecializer
      *********************************************************************************/
-    typedef typename std::iterator_traits< DVInputIterator  >::value_type iType;
-    typedef typename std::iterator_traits< DVOutputIterator >::value_type oType;
+    typedef typename std::iterator_traits< InputIterator  >::value_type iType;
+    typedef typename std::iterator_traits< OutputIterator >::value_type oType;
     std::vector<std::string> typeNames( transformScan_end );
     typeNames[ transformScan_iValueType ] = TypeName< iType >::get( );
-    typeNames[ transformScan_iIterType ] = TypeName< DVInputIterator >::get( );
+    typeNames[ transformScan_iIterType ] = TypeName< InputIterator >::get( );
     typeNames[ transformScan_oValueType ] = TypeName< oType >::get( );
-    typeNames[ transformScan_oIterType ] = TypeName< DVOutputIterator >::get( );
+    typeNames[ transformScan_oIterType ] = TypeName< OutputIterator >::get( );
     typeNames[ transformScan_initType ] = TypeName< T >::get( );
     typeNames[ transformScan_UnaryFunction ] = TypeName< UnaryFunction >::get();
     typeNames[ transformScan_BinaryFunction ] = TypeName< BinaryFunction >::get();
@@ -428,9 +431,9 @@ size_t k0_stepNum, k1_stepNum, k2_stepNum;
      *********************************************************************************/
     std::vector< std::string > typeDefinitions;
     PUSH_BACK_UNIQUE( typeDefinitions, ClCode< iType >::get() )
-    PUSH_BACK_UNIQUE( typeDefinitions, ClCode< DVInputIterator >::get() )
+    PUSH_BACK_UNIQUE( typeDefinitions, ClCode< InputIterator >::get() )
     PUSH_BACK_UNIQUE( typeDefinitions, ClCode< oType >::get() )
-    PUSH_BACK_UNIQUE( typeDefinitions, ClCode< DVOutputIterator >::get() )
+    PUSH_BACK_UNIQUE( typeDefinitions, ClCode< OutputIterator >::get() )
     PUSH_BACK_UNIQUE( typeDefinitions, ClCode< T >::get() )
     PUSH_BACK_UNIQUE( typeDefinitions, ClCode< UnaryFunction >::get() )
     PUSH_BACK_UNIQUE( typeDefinitions, ClCode< BinaryFunction >::get() )
@@ -520,9 +523,9 @@ aProfiler.set(AsyncProfiler::device, control::SerialCpu);
 
     ldsSize  = static_cast< cl_uint >( (kernel0_WgSize*2) * sizeof( iType ) );
 
-   typename DVInputIterator::Payload firs_payload = first.gpuPayload( );
+    typename InputIterator::Payload firs_payload = first.gpuPayload( );
 
-    V_OPENCL( kernels[0].setArg( 0, first.getContainer().getBuffer() ),  "Error setArg kernels[ 0 ]" ); // Input buffer
+    V_OPENCL( kernels[0].setArg( 0, first.base().getContainer().getBuffer()/*first.getContainer().getBuffer()*/ ),  "Error setArg kernels[ 0 ]" ); // Input buffer
     V_OPENCL( kernels[0].setArg( 1, first.gpuPayloadSize( ),&firs_payload  ),"Error setting a kernel argument");
     V_OPENCL( kernels[0].setArg( 2, init_T ),               "Error setArg kernels[ 0 ]" ); // Initial value exclusive
     V_OPENCL( kernels[0].setArg( 3, numElements ),          "Error setArg kernels[ 0 ]" ); // Size of scratch buffer
@@ -610,12 +613,12 @@ aProfiler.setStepName("Setup Kernel 2");
 aProfiler.set(AsyncProfiler::device, control::SerialCpu);
 #endif
 
-    typename DVOutputIterator::Payload result_payload = result.gpuPayload();
-    typename DVInputIterator::Payload   first_payload = first.gpuPayload();
+    typename OutputIterator::Payload result_payload = result.gpuPayload();
+    typename InputIterator::Payload   first_payload = first.gpuPayload();
 
     V_OPENCL( kernels[2].setArg( 0, result.getContainer().getBuffer()),   "Error setArg kernels[ 2 ]" ); // Output buffer
     V_OPENCL( kernels[2].setArg( 1, result.gpuPayloadSize( ),&result_payload),"Error setting a kernel argument");
-    V_OPENCL( kernels[2].setArg( 2, first.getContainer().getBuffer() ),  "Error setArg kernels[ 0 ]" ); // Input buffer
+    V_OPENCL( kernels[2].setArg( 2, first.base().getContainer().getBuffer()/*first.getContainer().getBuffer()*/ ),  "Error setArg kernels[ 0 ]" ); // Input buffer
     V_OPENCL( kernels[2].setArg( 3, first.gpuPayloadSize( ),&first_payload  ),"Error setting a kernel argument");
     V_OPENCL( kernels[2].setArg( 4, *preSumArray ),        "Error setArg kernels[ 2 ]" ); // Input buffer
     V_OPENCL( kernels[2].setArg( 5, *preSumArray1 ),         "Error setArg kernels[ 0 ]" ); // Output per block sum
@@ -716,7 +719,7 @@ template<
     typename T,
     typename BinaryFunction >
 typename std::enable_if< std::is_same< typename std::iterator_traits< OutputIterator >::iterator_category ,
-                                       bolt::cl::random_access_iterator_tag
+                                       std::random_access_iterator_tag
                                      >::value
                        >::type
 transform_scan(
@@ -727,30 +730,31 @@ transform_scan(
     const UnaryFunction& unary_op,
     const T& init,
     const bool& inclusive,
-    const BinaryFunction& binary_op)
+    const BinaryFunction& binary_op,
+    const std::string& user_code)
 {
  
 	typedef typename std::iterator_traits< InputIterator >::value_type iType;
     typedef typename std::iterator_traits< OutputIterator >::value_type oType;
 
 
-    unsigned int numElements = static_cast< unsigned int >( std::distance( first, last ) );
+    int numElements = static_cast< int >( std::distance( first, last ) );
     if( numElements == 0 )
-        return result;
+        return;
 
 	typedef typename InputIterator::pointer pointer;
         
     pointer first_pointer = bolt::cl::addressof(first) ;
 
-    device_vector< iType > dvInput( first_pointer, sz, CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, true, ctl );
-    device_vector< oType > dvOutput( result, sz, CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, false, ctl );
+    device_vector< iType > dvInput( first_pointer, numElements, CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, true, ctl );
+    device_vector< oType > dvOutput( result, numElements, CL_MEM_USE_HOST_PTR | CL_MEM_READ_WRITE, false, ctl );
     auto device_iterator_first = bolt::cl::create_device_itr(
                                         typename bolt::cl::iterator_traits< InputIterator >::iterator_category( ), 
                                         first, dvInput.begin() );
     auto device_iterator_last  = bolt::cl::create_device_itr(
                                         typename bolt::cl::iterator_traits< InputIterator >::iterator_category( ), 
                                         last, dvInput.end() );
-    cl::transform_scan(ctl, device_iterator_first, device_iterator_last, dvOutput.begin(), unary_op, init, binary_op, inclusive);
+    cl::transform_scan(ctl, device_iterator_first, device_iterator_last, dvOutput.begin(), unary_op, init, inclusive, binary_op, user_code);
     dvOutput.data( );
 
     return ;
@@ -782,7 +786,8 @@ transform_scan(
     const UnaryFunction& unary_op,
     const T& init,
     const bool& inclusive,
-    const BinaryFunction& binary_op)
+    const BinaryFunction& binary_op,
+    const std::string& user_code)
 {
 
 
@@ -809,9 +814,9 @@ transform_scan(
 	    #if defined(BOLT_DEBUG_LOG)
         dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMSCAN,BOLTLOG::BOLT_SERIAL_CPU,"::Transform_Scan::SERIAL_CPU");
         #endif
-        std::transform(first, last, result, unary_op);
+        //std::transform(first, last, result, unary_op);
         //Serial_Scan<oType, BinaryFunction, T>(&(*result), &(*result), numElements, binary_op,inclusive,init);
-		serial::transform_scan(ctl, first, last, result, unary_op, init, binary_op, inclusive );
+		serial::transform_scan(ctl, first, last, result, unary_op, init, inclusive, binary_op );
         return result + numElements;
     }
     else if( runMode == bolt::cl::control::MultiCoreCpu )
@@ -820,10 +825,9 @@ transform_scan(
 		     #if defined(BOLT_DEBUG_LOG)
              dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMSCAN,BOLTLOG::BOLT_MULTICORE_CPU,"::Transform_Scan::MULTICORE_CPU");
              #endif
-			 btbb::transform_scan(ctl, first, last, result, unary_op, init, binary_op, inclusive );
-
+			 btbb::transform_scan(ctl, first, last, result, unary_op, init, inclusive, binary_op );
         #else
-                throw std::runtime_error("The MultiCoreCpu version of Transform_scan is not enabled to be built! \n");
+             throw std::runtime_error("The MultiCoreCpu version of Transform_scan is not enabled to be built! \n");
         #endif
 
         return result + numElements;
@@ -835,7 +839,7 @@ transform_scan(
         dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMSCAN,BOLTLOG::BOLT_OPENCL_GPU,"::Transform_Scan::OPENCL_GPU");
         #endif
 		
-		cl::transform_scan(ctl, first, last, result, unary_op, init, binary_op, inclusive );
+		cl::transform_scan(ctl, first, last, result, unary_op, init, inclusive, binary_op, user_code );
     }
     return result + numElements;
 };
@@ -863,7 +867,8 @@ transform_scan(
     const UnaryFunction& unary_op,
     const T& init,
     const bool& inclusive,
-    const BinaryFunction& binary_op)
+    const BinaryFunction& binary_op,
+    const std::string& user_code)
 {
     //  TODO:  It should be possible to support non-random_access_iterator_tag iterators, if we copied the data
     //  to a temporary buffer.  Should we?
@@ -888,33 +893,7 @@ transform_scan(
         typename InputIterator,
         typename OutputIterator,
         typename UnaryFunction,
-        typename BinaryFunction>
-    OutputIterator
-    transform_inclusive_scan(
-        InputIterator first,
-        InputIterator last,
-        OutputIterator result,
-        UnaryFunction unary_op,
-        BinaryFunction binary_op,
-        const std::string& user_code )
-    {
-        typedef typename std::iterator_traits<OutputIterator>::value_type oType;
-        oType init; memset(&init, 0, sizeof(oType) );
-		using bolt::cl::transform_inclusive_scan;
-        return transform_inclusive_scan(
-            control::getDefault( ),
-            first,
-            last,
-            result,
-            unary_op,
-            binary_op
-           );
-    }
-
-    template<
-        typename InputIterator,
-        typename OutputIterator,
-        typename UnaryFunction,
+        //typename T,
         typename BinaryFunction>
     OutputIterator
     transform_inclusive_scan(
@@ -937,39 +916,42 @@ transform_scan(
             unary_op,
             init,
             true, // inclusive
-            binary_op);
+            binary_op,
+            user_code);
     }
 
-    //////////////////////////////////////////
-    //  Exclusive scan overloads
-    //////////////////////////////////////////
     template<
         typename InputIterator,
         typename OutputIterator,
         typename UnaryFunction,
-        typename T,
         typename BinaryFunction>
     OutputIterator
-    transform_exclusive_scan(
+    transform_inclusive_scan(
         InputIterator first,
         InputIterator last,
         OutputIterator result,
         UnaryFunction unary_op,
-        T init,
         BinaryFunction binary_op,
         const std::string& user_code )
     {
-		using bolt::cl::transform_exclusive_scan;
 
-        return transform_exclusive_scan(
+		using bolt::cl::transform_inclusive_scan;
+        return transform_inclusive_scan(
             control::getDefault( ),
             first,
             last,
             result,
             unary_op,
-            init,
-            binary_op );
+            binary_op,
+            user_code
+           );
     }
+
+
+
+    //////////////////////////////////////////
+    //  Exclusive scan overloads
+    //////////////////////////////////////////
 
     template<
         typename InputIterator,
@@ -998,8 +980,39 @@ transform_scan(
             unary_op,
             init,
             false, // exclusive
-            binary_op);
+            binary_op,
+            user_code);
     }
+
+    template<
+        typename InputIterator,
+        typename OutputIterator,
+        typename UnaryFunction,
+        typename T,
+        typename BinaryFunction>
+    OutputIterator
+    transform_exclusive_scan(
+        InputIterator first,
+        InputIterator last,
+        OutputIterator result,
+        UnaryFunction unary_op,
+        T init,
+        BinaryFunction binary_op,
+        const std::string& user_code )
+    {
+		using bolt::cl::transform_exclusive_scan;
+
+        return transform_exclusive_scan(
+            control::getDefault( ),
+            first,
+            last,
+            result,
+            unary_op,
+            init,
+            binary_op,
+            user_code);
+    }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
