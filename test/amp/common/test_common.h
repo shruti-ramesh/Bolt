@@ -47,7 +47,7 @@ template< typename T >
 ::testing::AssertionResult cmpArrays( const T ref, const T calc, size_t N )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < N; ++i )
+    for( int i = 0; i < static_cast<int>( N ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         EXPECT_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -60,7 +60,7 @@ template< typename T, size_t N >
 ::testing::AssertionResult cmpArrays( const T (&ref)[N], const T (&calc)[N] )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < N; ++i )
+    for( int i = 0; i < static_cast<int>( N ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         EXPECT_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -75,7 +75,7 @@ struct cmpStdArray
     static ::testing::AssertionResult cmpArrays( const std::array< T, N >& ref, const std::array< T, N >& calc )
     {
         BOLT_TEST_RESET_FAILURES
-        for( size_t i = 0; i < N; ++i )
+        for( int i = 0; i < static_cast<int>( N ); ++i )
         {
             BOLT_TEST_INCREMENT_FAILURES
             EXPECT_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -92,7 +92,7 @@ struct cmpStdArray< float, N >
     static ::testing::AssertionResult cmpArrays( const std::array< float, N >& ref, const std::array< float, N >& calc )
     {
         BOLT_TEST_RESET_FAILURES
-        for( size_t i = 0; i < N; ++i )
+        for( int i = 0; i < static_cast<int>( N ); ++i )
         {
             BOLT_TEST_INCREMENT_FAILURES
             EXPECT_FLOAT_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -108,7 +108,7 @@ struct cmpStdArray< double, N >
     static ::testing::AssertionResult cmpArrays( const std::array< double, N >& ref, const std::array< double, N >& calc )
     {
         BOLT_TEST_RESET_FAILURES
-        for( size_t i = 0; i < N; ++i )
+        for( int i = 0; i < static_cast<int>( N ); ++i )
         {
             BOLT_TEST_INCREMENT_FAILURES
             EXPECT_DOUBLE_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -123,7 +123,7 @@ template< typename T >
 ::testing::AssertionResult cmpArrays( const std::vector< T >& ref, const std::vector< T >& calc )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < ref.size( ); ++i )
+    for( int i = 0; i < static_cast<int>( ref.size( ) ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         EXPECT_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -135,7 +135,7 @@ template< typename T >
 ::testing::AssertionResult cmpArrays( const std::vector< float >& ref, const std::vector< float >& calc )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < ref.size( ); ++i )
+    for( int i = 0; i < static_cast<int>( ref.size( ) ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         EXPECT_FLOAT_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -148,7 +148,7 @@ template< typename T >
 ::testing::AssertionResult cmpArrays( const std::vector< double >& ref, const std::vector< double >& calc )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < ref.size( ); ++i )
+    for( int i = 0; i < static_cast<int>( ref.size( ) ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         EXPECT_DOUBLE_EQ( ref[ i ], calc[ i ] ) << _T( "Where i = " ) << i;
@@ -165,7 +165,7 @@ typename std::enable_if< std::is_same< typename std::iterator_traits<typename S:
 cmpArrays( const S& ref, const B& calc )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < ref.size( ); ++i )
+    for( int i = 0; i < static_cast<int>( ref.size( ) ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         //the two float values are almost equal 
@@ -183,7 +183,7 @@ typename std::enable_if< std::is_same< typename std::iterator_traits<typename S:
 cmpArrays( const S& ref, const B& calc )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < ref.size( ); ++i )
+    for( int i = 0; i < static_cast<int>( ref.size( ) ); ++i )
     {
         BOLT_TEST_INCREMENT_FAILURES
         //the two float values are almost equal 
@@ -204,7 +204,7 @@ typename std::enable_if< !(std::is_same< typename std::iterator_traits<typename 
  cmpArrays( const S& ref, const B& calc )
 {
     BOLT_TEST_RESET_FAILURES
-    for( size_t i = 0; i < ref.size( ); ++i )
+    for( int i = 0; i < static_cast<int>( ref.size( ) ); ++i )
     {
        
         //the two float values are almost equal 
@@ -222,7 +222,7 @@ cmpArrays( const T1& ref, typename bolt::amp::device_vector<T2> &calc )
 {
 		typename bolt::amp::device_vector<T2>::pointer calcptr =  calc.data( );
         BOLT_TEST_RESET_FAILURES
-        for( size_t i = 0; i < ref.size(); ++i )
+        for( int i = 0; i < static_cast<int>( ref.size() ); ++i )
         {
             EXPECT_EQ( ref[ i ], calcptr[ i ] ) << _T( "Where i = " ) << i ;
         }
@@ -238,7 +238,7 @@ cmpArrays( typename bolt::amp::device_vector<T1> &ref, typename bolt::amp::devic
 		typename bolt::amp::device_vector<T2>::pointer calcptr =  calc.data( );
 
         BOLT_TEST_RESET_FAILURES
-        for( size_t i = 0; i < ref.size(); ++i )
+        for( int i = 0; i < static_cast<int>( ref.size() ); ++i )
         {
             BOLT_TEST_INCREMENT_FAILURES_PTR
             EXPECT_EQ( refptr[ i ], calcptr[ i ] ) << _T( "Where i = " ) << i;
@@ -255,7 +255,7 @@ cmpArrays( typename bolt::amp::device_vector<T1> &ref, typename bolt::amp::devic
 		typename bolt::amp::device_vector<T2>::pointer calcptr =  calc.data( );
 
         BOLT_TEST_RESET_FAILURES
-        for( size_t i = 0; i < N; ++i )
+        for( int i = 0; i < static_cast<int>( N ); ++i )
         {
             BOLT_TEST_INCREMENT_FAILURES_PTR
             EXPECT_EQ( refptr[ i ], calcptr[ i ] ) << _T( "Where i = " ) << i;
