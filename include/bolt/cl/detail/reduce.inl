@@ -37,23 +37,118 @@ namespace serial{
                 const InputIterator& first,
                 const InputIterator& last,
                 const T& init,
-                const BinaryFunction& binary_op)
+                const BinaryFunction& binary_op,
+				std::random_access_iterator_tag)
     {
-        return 0;
+		return std::accumulate(first, last, init, binary_op);
+    }
+
+	template<typename T, typename InputIterator, typename BinaryFunction>
+    T reduce(bolt::cl::control &ctl,
+                const InputIterator& first,
+                const InputIterator& last,
+                const T& init,
+                const BinaryFunction& binary_op,
+				bolt::cl::fancy_iterator_tag)
+    {
+		return std::accumulate(first, last, init, binary_op);
+    }
+
+	//std::accumulate also works fine with device_vector as input, but it does a map & unmap for every element.
+	//Added device_vector specialization for reduce to overcome the above drawback of std::accumulate functions default behaviour, 
+	// by doing map & unmap only once for all the elements.
+	template<typename T, typename InputIterator, typename BinaryFunction>
+    T reduce(bolt::cl::control &ctl,
+                const InputIterator& first,
+                const InputIterator& last,
+                const T& init,
+                const BinaryFunction& binary_op,
+				bolt::cl::device_vector_tag)
+    {
+		size_t n = (last - first);
+
+        typedef typename std::iterator_traits< InputIterator >::value_type iType;
+
+	    /*Get The associated OpenCL buffer for each of the iterators*/
+        ::cl::Buffer inputBuffer = first.base().getContainer( ).getBuffer( );
+        /*Get The size of each OpenCL buffer*/
+        size_t input_sz = inputBuffer.getInfo<CL_MEM_SIZE>();
+	    
+        cl_int map_err;
+        iType *inputPtr = (iType*)ctl.getCommandQueue().enqueueMapBuffer(inputBuffer, true, CL_MAP_READ, 0, 
+                                                                            input_sz, NULL, NULL, &map_err);
+        auto mapped_ip_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>::iterator_category() 
+                                                        ,first, inputPtr);  
+	    T output = std::accumulate(mapped_ip_itr, mapped_ip_itr + (int) n, init, binary_op);
+
+	    ::cl::Event unmap_event[1];
+        ctl.getCommandQueue().enqueueUnmapMemObject(inputBuffer, inputPtr, NULL, &unmap_event[0] );
+        unmap_event[0].wait();  
+			
+			
+		return output;
     }
 
 } // end of namespace serial
 
 
 namespace btbb{
+
+	template<typename T, typename InputIterator, typename BinaryFunction>
+    T reduce(bolt::cl::control &ctl,
+                const InputIterator& first,
+                const InputIterator& last,
+                const T& init,
+                const BinaryFunction& binary_op,
+				std::random_access_iterator_tag)
+    {
+		return bolt::btbb::reduce(first, last, init, binary_op);
+    }
+
+	template<typename T, typename InputIterator, typename BinaryFunction>
+    T reduce(bolt::cl::control &ctl,
+                const InputIterator& first,
+                const InputIterator& last,
+                const T& init,
+                const BinaryFunction& binary_op,
+				bolt::cl::fancy_iterator_tag)
+    {
+		return bolt::btbb::reduce(first, last, init, binary_op);
+    }
+
+	//btbb::reduce works fine with device_vector as input, but it does a map & unmap for every element. 
+	//Added device_vector specialization for reduce to overcome the above drawback of std::accumulate functions default behaviour, 
+	//by doing map & unmap only once for all the elements.
     template<typename T, typename InputIterator, typename BinaryFunction>
     T reduce(bolt::cl::control &ctl,
                 const InputIterator& first,
                 const InputIterator& last,
                 const T& init,
-                const BinaryFunction& binary_op)
+                const BinaryFunction& binary_op,
+				bolt::cl::device_vector_tag)
     {
-        return 0;
+		size_t n = (last - first);
+
+        typedef typename std::iterator_traits< InputIterator >::value_type iType;
+
+	    /*Get The associated OpenCL buffer for each of the iterators*/
+        ::cl::Buffer inputBuffer = first.base().getContainer( ).getBuffer( );
+        /*Get The size of each OpenCL buffer*/
+        size_t input_sz = inputBuffer.getInfo<CL_MEM_SIZE>();
+	    
+        cl_int map_err;
+        iType *inputPtr = (iType*)ctl.getCommandQueue().enqueueMapBuffer(inputBuffer, true, CL_MAP_READ, 0, 
+                                                                            input_sz, NULL, NULL, &map_err);
+        auto mapped_ip_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>::iterator_category() 
+                                                        ,first, inputPtr);  
+	    T output = bolt::btbb::reduce(mapped_ip_itr, mapped_ip_itr + (int) n, init, binary_op);
+
+	    ::cl::Event unmap_event[1];
+        ctl.getCommandQueue().enqueueUnmapMemObject(inputBuffer, inputPtr, NULL, &unmap_event[0] );
+        unmap_event[0].wait();  
+			
+			
+		return output;
     }
 } // end of namespace btbb
 
@@ -288,7 +383,7 @@ namespace cl{
             #if defined(BOLT_DEBUG_LOG)
             dblog->CodePathTaken(BOLTLOG::BOLT_REDUCE,BOLTLOG::BOLT_SERIAL_CPU,"::Reduce::SERIAL_CPU");
             #endif
-            return serial::reduce(ctl, first, last, init, binary_op);
+            return serial::reduce(ctl, first, last, init, binary_op, std::iterator_traits<InputIterator>::iterator_category());
         }
         else if( runMode == bolt::cl::control::MultiCoreCpu )
         {
@@ -296,7 +391,7 @@ namespace cl{
             #if defined(BOLT_DEBUG_LOG)
             dblog->CodePathTaken(BOLTLOG::BOLT_REDUCE,BOLTLOG::BOLT_MULTICORE_CPU,"::Reduce::MULTICORE_CPU");
             #endif
-            return btbb::reduce(ctl, first, last, init, binary_op );
+            return btbb::reduce(ctl, first, last, init, binary_op, std::iterator_traits<InputIterator>::iterator_category() );
 #else
             throw std::runtime_error( "The MultiCoreCpu version of transform is not enabled to be built! \n" );
 #endif
