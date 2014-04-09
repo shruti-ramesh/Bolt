@@ -23,6 +23,7 @@
 #include "bolt/cl/iterator/transform_iterator.h"
 #include "bolt/cl/transform_scan.h"
 #include "bolt/cl/transform.h"
+#include "bolt/cl/reduce.h"
 #include "bolt/cl/generate.h"
 #include "bolt/cl/functional.h"
 #include "bolt/cl/distance.h"
@@ -460,6 +461,8 @@ TEST( TransformIterator, BinaryTransformRoutine)
     }
 }
 
+
+
 TEST( TransformIterator, InclusiveTransformScanRoutine)
 {
     {
@@ -639,6 +642,89 @@ TEST( TransformIterator, ExclusiveTransformScanRoutine)
     }
 }
 
+TEST( TransformIterator, ReduceRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< int > svIn1Vec( length );
+        std::vector< int > svIn2Vec( length );
+        std::vector< int > svOutVec( length );
+        std::vector< int > stlOut( length );
+        bolt::BCKND::device_vector< int > dvIn1Vec( length );
+        bolt::BCKND::device_vector< int > dvIn2Vec( length );
+        bolt::BCKND::device_vector< int > dvOutVec( length );
+
+        add_3 add3;
+        add_4 add4;
+        bolt::cl::plus<int> plus;
+        gen_input gen;
+        typedef std::vector< int >::const_iterator                                                         sv_itr;
+        typedef bolt::BCKND::device_vector< int >::iterator                                                dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                      counting_itr;
+        typedef bolt::BCKND::constant_iterator< int >                                                      constant_itr;
+        typedef bolt::BCKND::transform_iterator< add_3, std::vector< int >::const_iterator>                sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_3, bolt::BCKND::device_vector< int >::iterator>       dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_4, std::vector< int >::const_iterator>                sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< add_4, bolt::BCKND::device_vector< int >::iterator>       dv_trf_itr_add4;    
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add4);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add4);
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(1);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+        global_id = 0;
+        {/*Test case when inputs are trf Iterators*/
+            int sv_result = bolt::cl::reduce(sv_trf_begin1, sv_trf_end1, 0, plus);
+            int dv_result = bolt::cl::reduce(dv_trf_begin1, dv_trf_end1, 0, plus);
+            /*Compute expected results*/
+            int expected_result = std::accumulate(sv_trf_begin1, sv_trf_end1, 0, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            int sv_result = bolt::cl::reduce(svIn2Vec.begin(), svIn2Vec.end(), 0, plus);
+            int dv_result = bolt::cl::reduce(dvIn2Vec.begin(), dvIn2Vec.end(), 0, plus);
+            /*Compute expected results*/
+            int expected_result = std::accumulate(svIn2Vec.begin(), svIn2Vec.end(), 0, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is trf_itr and the second is a constant iterator */
+            int sv_result = bolt::cl::reduce(const_itr_begin, const_itr_end, 0, plus);
+            int dv_result = bolt::cl::reduce(const_itr_begin, const_itr_end, 0, plus);
+            /*Compute expected results*/
+            int expected_result = std::accumulate(const_itr_begin, const_itr_end, 0, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is trf_itr and the second is a counting iterator */
+            int sv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, 0, plus);
+            int dv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, 0, plus);
+            /*Compute expected results*/
+            int expected_result = std::accumulate(count_itr_begin, count_itr_end, 0, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
 
 /* /brief List of possible tests
  * Two input transform with first input a constant iterator
