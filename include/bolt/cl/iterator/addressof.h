@@ -14,7 +14,7 @@ namespace cl{
     }
 
     template <typename T>
-    typename T * addressof(T* itr)
+    T * addressof(T* itr)
     {
         return itr;
     }
@@ -65,7 +65,7 @@ namespace cl{
     }
 
     template <typename T, typename DeviceIterator>
-    const typename bolt::cl::device_vector<typename T>::iterator 
+    const typename bolt::cl::device_vector<T>::iterator 
     create_device_itr(std::random_access_iterator_tag, T* ptr, DeviceIterator dev_itr)
     {
         return dev_itr;
