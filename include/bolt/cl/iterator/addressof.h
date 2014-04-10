@@ -34,7 +34,7 @@ namespace cl{
     {
         typedef typename bolt::cl::counting_iterator<value_type>::pointer pointer;
         pointer ptr = itr;
-        return itr;
+        return ptr;
     }
 
     template <typename value_type>
@@ -43,7 +43,7 @@ namespace cl{
     {
         typedef typename bolt::cl::constant_iterator<value_type>::pointer pointer;
         pointer ptr = itr;
-        return itr;
+        return ptr;
     }
 
     
