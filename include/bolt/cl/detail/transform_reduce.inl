@@ -68,8 +68,8 @@ namespace serial{
                   cl_int map_err;
                   iType *inputPtr = (iType*)ctl.getCommandQueue().enqueueMapBuffer(inputBuffer, true, CL_MAP_READ, 0, 
                                                                                       input_sz, NULL, NULL, &map_err);
-                  auto mapped_ip_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>::iterator_category() 
-                                                                  ,first, inputPtr); 
+                  auto mapped_ip_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>
+					  ::iterator_category() ,first, inputPtr); 
 				  //Create a temporary array to store the transform result;
 				  std::vector<oType> output_vector(n);
 
@@ -135,10 +135,11 @@ namespace btbb{
                   cl_int map_err;
                   iType *inputPtr = (iType*)ctl.getCommandQueue().enqueueMapBuffer(inputBuffer, true, CL_MAP_READ, 0, 
                                                                                       input_sz, NULL, NULL, &map_err);
-                  auto mapped_ip_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>::iterator_category() 
-                                                                  ,first, inputPtr); 
+                  auto mapped_ip_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>
+					  ::iterator_category() ,first, inputPtr); 
 				  
-	              oType output = bolt::btbb::transform_reduce(mapped_ip_itr, mapped_ip_itr + n, transform_op, init, reduce_op);
+	              oType output = bolt::btbb::transform_reduce(mapped_ip_itr, mapped_ip_itr + n, transform_op,
+					  init, reduce_op);
 		          
 	              ::cl::Event unmap_event[1];
                   ctl.getCommandQueue().enqueueUnmapMemObject(inputBuffer, inputPtr, NULL, &unmap_event[0] );
@@ -164,7 +165,7 @@ namespace btbb{
 		          return bolt::btbb::transform_reduce(first,last,transform_op,init,reduce_op);
     }
 
-}//end of btbb 
+}//end of namespace btbb 
 
 
 namespace cl{
@@ -431,19 +432,23 @@ namespace cl{
                 if (runMode == bolt::cl::control::SerialCpu)
                 {
 			        #if defined(BOLT_DEBUG_LOG)
-                    dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMREDUCE,BOLTLOG::BOLT_SERIAL_CPU,"::Transform_Reduce::SERIAL_CPU");
+                    dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMREDUCE,
+						BOLTLOG::BOLT_SERIAL_CPU,"::Transform_Reduce::SERIAL_CPU");
                     #endif
 			      	
-                    return serial::transform_reduce(ctl,  first, last, transform_op, init, reduce_op, user_code, std::iterator_traits<InputIterator>::iterator_category() );
+                    return serial::transform_reduce(ctl,  first, last, transform_op, init, reduce_op, user_code,
+						std::iterator_traits<InputIterator>::iterator_category() );
                 }
                 else if (runMode == bolt::cl::control::MultiCoreCpu)
                 {
 #ifdef ENABLE_TBB
                     #if defined(BOLT_DEBUG_LOG)
-                    dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMREDUCE,BOLTLOG::BOLT_MULTICORE_CPU,"::Transform_Reduce::MULTICORE_CPU");
+                    dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMREDUCE,BOLTLOG::BOLT_MULTICORE_CPU,"
+						::Transform_Reduce::MULTICORE_CPU");
                     #endif
 				      
-				    return  btbb::transform_reduce( ctl, first, last, transform_op, init, reduce_op, user_code, std::iterator_traits<InputIterator>::iterator_category() );
+				    return  btbb::transform_reduce( ctl, first, last, transform_op, init, reduce_op, user_code,
+						std::iterator_traits<InputIterator>::iterator_category() );
 #else
 
                     throw std::runtime_error( "The MultiCoreCpu version of transform_reduce function is not enabled to be built! \n");
@@ -452,9 +457,11 @@ namespace cl{
 #endif
                 }
                 #if defined(BOLT_DEBUG_LOG)
-                dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMREDUCE,BOLTLOG::BOLT_OPENCL_GPU,"::Transform_Reduce::OPENCL_GPU");
+                dblog->CodePathTaken(BOLTLOG::BOLT_TRANSFORMREDUCE,BOLTLOG::BOLT_OPENCL_GPU,
+					"::Transform_Reduce::OPENCL_GPU");
                 #endif
-                return  cl::transform_reduce( ctl, first, last, transform_op, init, reduce_op, user_code, std::iterator_traits<InputIterator>::iterator_category() );
+                return  cl::transform_reduce( ctl, first, last, transform_op, init, reduce_op, user_code,
+					std::iterator_traits<InputIterator>::iterator_category() );
     };
 
 

@@ -33,7 +33,7 @@
 #include "bolt/cl/iterator/addressof.h"
 
 namespace bolt{
-    namespace cl{
+namespace cl{
 
 
 namespace detail{
@@ -83,7 +83,8 @@ namespace serial{
                                                         ,first, inputPtr); 
 		
 
-	    std::iterator_traits<std::vector<int>::iterator>::difference_type output = std::count_if(mapped_ip_itr, mapped_ip_itr + (int)n, predicate);
+	    std::iterator_traits<std::vector<int>::iterator>::difference_type output = std::count_if(mapped_ip_itr,
+			mapped_ip_itr + (int)n, predicate);
 		
 	    ::cl::Event unmap_event[1];
         ctl.getCommandQueue().enqueueUnmapMemObject(inputBuffer, inputPtr, NULL, &unmap_event[0] );
@@ -157,7 +158,8 @@ namespace btbb{
                                                         ,first, inputPtr); 
 		
 
-	    std::iterator_traits<std::vector<int>::iterator>::difference_type output = bolt::btbb::count_if(mapped_ip_itr, mapped_ip_itr + (int)n, predicate);
+	    std::iterator_traits<std::vector<int>::iterator>::difference_type output = bolt::btbb::count_if(mapped_ip_itr,
+			mapped_ip_itr + (int)n, predicate);
 		
 	    ::cl::Event unmap_event[1];
         ctl.getCommandQueue().enqueueUnmapMemObject(inputBuffer, inputPtr, NULL, &unmap_event[0] );
@@ -250,8 +252,6 @@ namespace cl{
         /*\TODO - Do CPU specific kernel work group size selection here*/
         //const size_t kernel0_WgSize = (cpuDevice) ? 1 : WAVESIZE*KERNEL02WAVES;
         std::string compileOptions;
-        //std::ostringstream oss;
-        //oss << " -DKERNEL0WORKGROUPSIZE=" << kernel0_WgSize;
 
         Count_KernelTemplateSpecializer ts_kts;
         std::vector< ::cl::Kernel > kernels = bolt::cl::getKernels(
@@ -269,30 +269,24 @@ namespace cl{
         size_t numWG = computeUnits * wgPerComputeUnit;
 
         cl_int l_Error = CL_SUCCESS;
-        const size_t wgSize  = 256; // kernels[0].getWorkGroupInfo< CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE >(
-            //ctl.getDevice( ), &l_Error );
+        const size_t wgSize  = 256; 
         V_OPENCL( l_Error, "Error querying kernel for CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE" );
 
         // Create buffer wrappers so we can access the host functors, for read or writing in the kernel
         ALIGNED( 256 ) Predicate aligned_count( predicate );
 
-        //::cl::Buffer userFunctor(ctl.context(), CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY, sizeof( aligned_count ),
-
-        //  &aligned_count );
         control::buffPointer userFunctor = ctl.acquireBuffer( sizeof( aligned_count ),
             CL_MEM_USE_HOST_PTR|CL_MEM_READ_ONLY, &aligned_count );
 
 
-        //::cl::Buffer result(ctl.context(), CL_MEM_ALLOC_HOST_PTR|CL_MEM_WRITE_ONLY, sizeof( iType ) * numWG);
-
         control::buffPointer result = ctl.acquireBuffer( sizeof( int ) * numWG,
             CL_MEM_ALLOC_HOST_PTR|CL_MEM_WRITE_ONLY );
 
-        cl_uint szElements = static_cast< cl_uint >( std::distance( first, last ) ); //static_cast< cl_uint >( first.distance_to(last ) );
+        cl_uint szElements = static_cast< cl_uint >( std::distance( first, last ) ); 
          typename InputIterator::Payload  first_payload = first.gpuPayload();
         V_OPENCL( kernels[0].setArg(0, first.base().getContainer().getBuffer() ), "Error setting kernel argument" );
 
-        V_OPENCL( kernels[0].setArg(1, first.gpuPayloadSize( ), &first_payload),                    "Error setting a kernel argument" );
+        V_OPENCL( kernels[0].setArg(1, first.gpuPayloadSize( ), &first_payload), "Error setting a kernel argument" );
 
         V_OPENCL( kernels[0].setArg(2, szElements), "Error setting kernel argument" );
         V_OPENCL( kernels[0].setArg(3, *userFunctor), "Error setting kernel argument" );
@@ -370,7 +364,8 @@ namespace cl{
                                              typename bolt::cl::iterator_traits< InputIterator >::iterator_category( ), 
                                              last, dvInput.end());
 
-         return  count( ctl, device_iterator_first, device_iterator_last, predicate, cl_code, bolt::cl::device_vector_tag());
+         return  count( ctl, device_iterator_first, device_iterator_last, predicate, cl_code, 
+			 bolt::cl::device_vector_tag());
 
 
 	}
@@ -427,7 +422,8 @@ namespace cl{
 	    #if defined(BOLT_DEBUG_LOG)
               dblog->CodePathTaken(BOLTLOG::BOLT_COUNT,BOLTLOG::BOLT_OPENCL_GPU,"::Count::OPENCL_GPU");
               #endif 
-              return  cl::count( ctl, first, last,  predicate, cl_code, typename std::iterator_traits< InputIterator >::iterator_category( ) );
+              return  cl::count( ctl, first, last,  predicate, cl_code, 
+				  typename std::iterator_traits< InputIterator >::iterator_category( ) );
 	    
         case bolt::cl::control::MultiCoreCpu:
         #ifdef ENABLE_TBB
@@ -436,7 +432,8 @@ namespace cl{
               dblog->CodePathTaken(BOLTLOG::BOLT_COUNT,BOLTLOG::BOLT_MULTICORE_CPU,"::Count::MULTICORE_CPU");
               #endif
               
-              return btbb::count( ctl, first, last,  predicate, cl_code, typename std::iterator_traits< InputIterator >::iterator_category( ) );
+              return btbb::count( ctl, first, last,  predicate, cl_code,
+				  typename std::iterator_traits< InputIterator >::iterator_category( ) );
 	    
         }
         #else
@@ -451,7 +448,8 @@ namespace cl{
               dblog->CodePathTaken(BOLTLOG::BOLT_COUNT,BOLTLOG::BOLT_SERIAL_CPU,"::Count::SERIAL_CPU");
               #endif
 	    
-              return  serial::count( ctl, first, last,  predicate, cl_code, typename std::iterator_traits< InputIterator >::iterator_category( ) );
+              return  serial::count( ctl, first, last,  predicate, cl_code, 
+				  typename std::iterator_traits< InputIterator >::iterator_category( ) );
 	    
         }
 	   
@@ -461,7 +459,8 @@ namespace cl{
              dblog->CodePathTaken(BOLTLOG::BOLT_COUNT,BOLTLOG::BOLT_SERIAL_CPU,"::Count::SERIAL_CPU");
              #endif	
 	   
-             return  serial::count( ctl, first, last,  predicate, cl_code, typename std::iterator_traits< InputIterator >::iterator_category( ) );
+             return  serial::count( ctl, first, last,  predicate, cl_code, 
+				 typename std::iterator_traits< InputIterator >::iterator_category( ) );
         }
 	   
        }
