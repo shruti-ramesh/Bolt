@@ -227,11 +227,12 @@ namespace cl{
     // first and last must be iterators from a DeviceVector
     template<typename InputIterator, typename Predicate>
     typename bolt::cl::iterator_traits<InputIterator>::difference_type
-        count_enqueue(bolt::cl::control &ctl,
+        count(bolt::cl::control &ctl,
         const InputIterator& first,
         const InputIterator& last,
         const Predicate& predicate,
-        const std::string& cl_code)
+        const std::string& cl_code,
+		bolt::cl::device_vector_tag)
     {
         typedef typename std::iterator_traits< InputIterator >::value_type iType;
         typedef typename bolt::cl::iterator_traits<InputIterator>::difference_type rType;
@@ -369,23 +370,8 @@ namespace cl{
                                              typename bolt::cl::iterator_traits< InputIterator >::iterator_category( ), 
                                              last, dvInput.end());
 
-         return  count_enqueue( ctl, device_iterator_first, device_iterator_last, predicate, cl_code);
+         return  count( ctl, device_iterator_first, device_iterator_last, predicate, cl_code, bolt::cl::device_vector_tag());
 
-
-	}
-
-
-	template<typename InputIterator, typename Predicate>
-    typename bolt::cl::iterator_traits<InputIterator>::difference_type
-        count(bolt::cl::control &ctl,
-        const InputIterator& first,
-        const InputIterator& last,
-        const Predicate& predicate,
-        const std::string& cl_code,
-		bolt::cl::device_vector_tag)
-    {
-
-		return  count_enqueue( ctl, first, last,  predicate, cl_code);
 
 	}
 
