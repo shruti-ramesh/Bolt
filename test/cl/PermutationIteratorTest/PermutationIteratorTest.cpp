@@ -217,7 +217,7 @@ TEST( PermutationIterator, UDDTest)
 }
 
 
-
+#if 0
 TEST( PermutationIterator, UnaryTransformRoutine)
 {
     {
@@ -305,7 +305,7 @@ TEST( PermutationIterator, UnaryTransformRoutine)
     }
 }
 
-#if 0
+
 TEST( TransformIterator, BinaryTransformRoutine)
 {
     {
