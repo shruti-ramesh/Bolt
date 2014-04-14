@@ -987,21 +987,15 @@ TEST( TransformIterator, CountRoutine)
     }
 }
 
-#if 0
 TEST( TransformIterator, InnerProductRoutine)
 {
     {
         const int length = 1<<10;
         std::vector< int > svIn1Vec( length );
-        std::vector< int > svIn2Vec( length );
-        //std::vector< int > svOutVec( length );
-        //std::vector< int > stlOut( length );
+        std::vector< int > svIn2Vec( length);
         bolt::BCKND::device_vector< int > dvIn1Vec( length );
-        bolt::BCKND::device_vector< int > dvIn2Vec( length );
-       // bolt::BCKND::device_vector< int > dvOutVec( length );
 
         add_3 add3;
-        //add_4 add4;
         bolt::cl::plus<int> plus;
 		bolt::cl::minus<int> minus;
 
@@ -1012,27 +1006,31 @@ TEST( TransformIterator, InnerProductRoutine)
         typedef bolt::BCKND::constant_iterator< int >                                                  constant_itr;
         typedef bolt::BCKND::transform_iterator< add_3, std::vector< int >::const_iterator>            sv_trf_itr_add3;
         typedef bolt::BCKND::transform_iterator< add_3, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add3;
-        typedef bolt::BCKND::transform_iterator< add_3/*add_4*/, std::vector< int >::const_iterator>            sv_trf_itr_add4;
-        typedef bolt::BCKND::transform_iterator< add_3/*add_4*/, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add4;    
+       
         /*Create Iterators*/
         sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
-        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add3 /*4*/);
+        sv_trf_itr_add3 sv_trf_begin2 (svIn2Vec.begin(), add3);
         dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
-        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add3 /*4*/);
+
         counting_itr count_itr_begin(0);
         counting_itr count_itr_end = count_itr_begin + length;
+		counting_itr count_itr_begin2(10);
         constant_itr const_itr_begin(1);
         constant_itr const_itr_end = const_itr_begin + length;
+		constant_itr const_itr_begin2(5);
 
         /*Generate inputs*/
         global_id = 0;
         std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
         global_id = 0;
-        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), rand);
         global_id = 0;
         bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), gen);
         global_id = 0;
-        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+
+		bolt::BCKND::device_vector< int > dvIn2Vec( svIn2Vec.begin(), svIn2Vec.end());
+		dv_trf_itr_add3 dv_trf_begin2 (dvIn2Vec.begin(), add3);
+
         global_id = 0;
 
 		int init = (int) rand();
@@ -1042,30 +1040,12 @@ TEST( TransformIterator, InnerProductRoutine)
             int sv_result = bolt::cl::inner_product(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, init, plus, minus);
             int dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, init, plus, minus);
             /*Compute expected results*/
-            int expected_result = std::inner_product(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, init, std::plus<int>(), std::minus<int>());
+            //int expected_result = std::inner_product(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, init, std::plus<int>(), std::minus<int>());
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );
         }
-        //{/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
-        //    int sv_result = bolt::cl::inner_product(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), init, plus, minus);
-        //    int dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), init, plus, minus);
-        //    /*Compute expected results*/
-        //    int expected_result = std::inner_product(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), init, std::plus<int>(), std::minus<int>());
-        //    /*Check the results*/
-        //    EXPECT_EQ( expected_result, sv_result );
-        //    EXPECT_EQ( expected_result, dv_result );
-        //}
-        //{/*Test case when the second input is trf_itr and the first is a randomAccessIterator */
-        //    int sv_result = bolt::cl::inner_product(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, init, plus, minus);
-        //    int dv_result = bolt::cl::inner_product(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, init, plus, minus);
-        //    /*Compute expected results*/
-        //    int expected_result = std::inner_product(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, init, std::plus<int>(), std::minus<int>());
-        //    /*Check the results*/
-        //    EXPECT_EQ( expected_result, sv_result );
-        //    EXPECT_EQ( expected_result, dv_result );
-        //}
-        {/*Test case when the both are randomAccessIterator */
+        {/*Test case when the both inputs are randomAccessIterator */
             int sv_result = bolt::cl::inner_product(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), init, plus, minus);
             int dv_result = bolt::cl::inner_product(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), init, plus, minus);
             /*Compute expected results*/
@@ -1074,45 +1054,37 @@ TEST( TransformIterator, InnerProductRoutine)
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );
         }
-        //{/*Test case when the first input is trf_itr and the second is a constant iterator */
-        //    int sv_result = bolt::cl::inner_product(sv_trf_begin1, sv_trf_end1, const_itr_begin, init, plus, minus)
-        //    int dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, const_itr_begin, init, plus, minus)
-        //    /*Compute expected results*/
-        //    std::vector<int> const_vector(length,1);
-        //    int expected_result = std::inner_product(sv_trf_begin1, sv_trf_end1, const_vector.begin(), init, std::plus<int>(), std::minus<int>());
-        //    /*Check the results*/
-        //    EXPECT_EQ( expected_result, sv_result );
-        //    EXPECT_EQ( expected_result, dv_result );
-        //}
-        //{/*Test case when the first input is trf_itr and the second is a counting iterator */
-        //    int sv_result = bolt::cl::inner_product(sv_trf_begin1, sv_trf_end1, count_itr_begin, init, plus, minus);
-        //    int dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, count_itr_begin, init, plus, minus);
-        //    /*Compute expected results*/
-        //    std::vector<int> count_vector(length);
-        //    for (int index=0;index<length;index++)
-        //        count_vector[index] = index;
-        //    int expected_result = std::inner_product(sv_trf_begin1, sv_trf_end1, count_vector.begin(), init, std::plus<int>(), std::minus<int>());
-        //    /*Check the results*/
-        //    EXPECT_EQ( expected_result, sv_result );
-        //    EXPECT_EQ( expected_result, dv_result );
-        //}
-        //{/*Test case when the first input is constant iterator and the second is a counting iterator */
-        //    int sv_result = bolt::cl::inner_product(const_itr_begin, const_itr_end, count_itr_begin, init, plus, minus);
-        //    int dv_result = bolt::cl::inner_product(const_itr_begin, const_itr_end, count_itr_begin, init, plus, minus);
-        //    /*Compute expected results*/
-        //    std::vector<int> const_vector(length,1);
-        //    std::vector<int> count_vector(length);
-        //    for (int index=0;index<length;index++)
-        //        count_vector[index] = index;            
-        //    int expected_result = std::inner_product(const_vector.begin(), const_vector.end(), count_vector.begin(),  init, std::plus<int>(), std::minus<int>());
-        //    /*Check the results*/
-        //    EXPECT_EQ( expected_result, sv_result );
-        //    EXPECT_EQ( expected_result, dv_result );
-        //}
+        {/*Test case when both inputs are constant iterator */
+            int sv_result = bolt::cl::inner_product(const_itr_begin, const_itr_end, const_itr_begin2, init, plus, minus);
+            int dv_result = bolt::cl::inner_product(const_itr_begin, const_itr_end, const_itr_begin2, init, plus, minus);
+            /*Compute expected results*/
+            std::vector<int> const_vector(length,1);
+			std::vector<int> const_vector2(length,5);
+            int expected_result = std::inner_product(const_vector.begin(), const_vector.end(), const_vector2.begin(), init, std::plus<int>(), std::minus<int>());
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when both inputs are counting iterator */
+            int sv_result = bolt::cl::inner_product(count_itr_begin, count_itr_end, count_itr_begin2, init, plus, minus);
+            int dv_result = bolt::cl::inner_product(count_itr_begin, count_itr_end, count_itr_begin2, init, plus, minus);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+			std::vector<int> count_vector2(length);
+            for (int index=0;index<length;index++)
+			{
+                count_vector[index] = index;
+				count_vector[index] = 10 + index;
+			}
+            int expected_result = std::inner_product(count_vector.begin(), count_vector.end(), count_vector2.begin(), init, std::plus<int>(), std::minus<int>());
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
         global_id = 0; // Reset the global id counter
     }
 }
-#endif
+
 
 /* /brief List of possible tests
  * Two input transform with first input a constant iterator
