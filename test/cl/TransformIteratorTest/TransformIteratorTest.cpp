@@ -995,6 +995,8 @@ TEST( TransformIterator, InnerProductRoutine)
         std::vector< int > svIn2Vec( length);
         bolt::BCKND::device_vector< int > dvIn1Vec( length );
 
+		std::vector< int > stlOut( length );
+
         add_3 add3;
         bolt::cl::plus<int> plus;
 		bolt::cl::minus<int> minus;
@@ -1040,7 +1042,8 @@ TEST( TransformIterator, InnerProductRoutine)
             int sv_result = bolt::cl::inner_product(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, init, plus, minus);
             int dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, init, plus, minus);
             /*Compute expected results*/
-            //int expected_result = std::inner_product(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, init, std::plus<int>(), std::minus<int>());
+			std::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, stlOut.begin(), minus);
+			int expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );

@@ -72,7 +72,17 @@ namespace serial{
          auto mapped_first2_itr = create_mapped_iterator(typename std::iterator_traits<InputIterator>::iterator_category(), 
                                                         first2, first2Ptr);
 
-         OutputType output = std::inner_product(  mapped_first1_itr, mapped_first1_itr + sz, mapped_first2_itr, init, f1, f2  );
+		 OutputType output = init;
+
+		 std::vector<iType> result(sz);
+         for(int index=0; index < (int)(sz); index++)
+         {
+             result[index] = (OutputType)  f2( *(first1+index), *(first2+index) );	
+         }
+		 for(int index=0; index < (int)(sz); index++)
+         {
+             output = (OutputType) f1( output, result[index] );	
+         }
 
          ::cl::Event unmap_event[2];
          ctl.getCommandQueue().enqueueUnmapMemObject(first1Buffer, first1Ptr, NULL, &unmap_event[0] );
@@ -90,7 +100,20 @@ namespace serial{
                 const BinaryFunction1& f1, const BinaryFunction2& f2, const std::string& user_code,
                 bolt::cl::fancy_iterator_tag )
     {
-		return  std::inner_product(  first1, last1, first2, init, f1, f2  );
+		typedef typename std::iterator_traits<InputIterator>::value_type iType;
+		OutputType res = init;
+
+		size_t sz = (last1 - first1);
+		std::vector<iType> result(sz);
+        for(int index=0; index < (int)(sz); index++)
+        {
+            result[index] = (OutputType)  f2( *(first1+index), *(first2+index) );	
+        }
+		for(int index=0; index < (int)(sz); index++)
+        {
+            res = (OutputType) f1( res, result[index] );	
+        }
+		return res;
 	}
 
 
@@ -100,7 +123,20 @@ namespace serial{
                 const BinaryFunction1& f1, const BinaryFunction2& f2, const std::string& user_code,
                 std::random_access_iterator_tag )
     {	
-		return  std::inner_product(  first1, last1, first2, init, f1, f2  );
+		typedef typename std::iterator_traits<InputIterator>::value_type iType;
+		OutputType res = init;
+
+		size_t sz = (last1 - first1);
+		std::vector<iType> result(sz);
+        for(int index=0; index < (int)(sz); index++)
+        {
+            result[index] = (OutputType) f2( *(first1+index), *(first2+index) );	
+        }
+		for(int index=0; index < (int)(sz); index++)
+        {
+            res = (OutputType)  f1( res, result[index] );	
+        }
+		return res;
 	}
 
 
@@ -216,17 +252,14 @@ namespace cl{
 
         //Should we directly call transform and reduce routines or launch a separate kernel?
         typedef typename std::iterator_traits<InputIterator>::value_type iType;
-        ::cl::Event innerproductEvent;
 
         cl_uint distVec = static_cast< cl_uint >( std::distance( first1, last1 ) );
         if( distVec == 0 )
             return init;
 
         device_vector< iType > tempDV( distVec, iType(), CL_MEM_READ_WRITE, false, ctl );
-        detail::cl::binary_transform( ctl, first1, last1, first2, tempDV.begin() ,f2,cl_code);
+        detail::cl::binary_transform( ctl, first1, last1, first2, tempDV.begin(), f2,cl_code);
         return detail::reduce( ctl, tempDV.begin(), tempDV.end(), init, f1, cl_code);
-        bolt::cl::wait(ctl, innerproductEvent);
-
     };
 
 	template<typename InputIterator, typename OutputType, typename BinaryFunction1,typename BinaryFunction2>
