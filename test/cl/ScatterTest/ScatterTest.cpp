@@ -131,7 +131,7 @@ typedef HostMemory_UDDTestInt2 HostMemory_UDDTestIntFloat;
 ////////////////////////////////////////////
 ///////////scatter_if Google Test Cases ///////
 ////////////////////////////////////////////
-
+#if 0
 TEST( HostMemory_Int, Scatter_IfPredicate )
 {
     // VS2012 doesn't support initializer list
@@ -2775,6 +2775,7 @@ TEST( DeviceMemory_Double, MulticoreScatter_If)
 }
 #endif
 
+#endif
 
 ////////////////////////////////////////////
 ///////////scatter Google Test Cases ///////
@@ -4508,7 +4509,7 @@ TEST( HostMemoryRandomNo_Double, MulticoreScatter_com_Boost )
 }
 #endif
 
-
+#if 0
 TEST( UDDTestInt2, SerialScatter_IfPredicate)
 {
     int sz = 63;    
@@ -4800,6 +4801,7 @@ TEST_P(HostMemory_UDDTestIntFloat, MulticoreScatter_IfPredicate)
     //for(int i=0; i<10 ; i++){ std::cout<<result[ i ]<<std::endl; }
     EXPECT_EQ(exp_result, result);
 }
+#endif
 
 TEST(UDDTestInt2, Scatter )
 {
@@ -5103,6 +5105,7 @@ TEST(HostMemory_IntStdVector, OffsetScatterPredicate)
     EXPECT_EQ(exp_result, result);
 }
 
+#if 0
 TEST(HostMemory_IntStdVector, OffsetScatterIfPredicate)
 {
 
@@ -5125,7 +5128,7 @@ TEST(HostMemory_IntStdVector, OffsetScatterIfPredicate)
     //for(int i=0; i<10 ; i++){ std::cout<<result[ i ]<<std::endl; }
     EXPECT_EQ(exp_result, result);
 }
-
+#endif
 
 TEST(HostMemory_IntStdVector, OffsetScatterPredicateMedium)
 {
@@ -5154,6 +5157,7 @@ TEST(HostMemory_IntStdVector, OffsetScatterPredicateMedium)
     EXPECT_EQ(exp_result, result);
 }
 
+#if 0
 TEST(HostMemory_IntStdVector, OffsetScatterIfPredicateMedium)
 {
     size_t myStdVectSize = 512;
@@ -5182,7 +5186,7 @@ TEST(HostMemory_IntStdVector, OffsetScatterIfPredicateMedium)
     EXPECT_EQ(exp_result, result);
 }
 
-
+#endif
 
 
 INSTANTIATE_TEST_CASE_P(ScatterIntLimit, HostMemory_IntStdVector, ::testing::Range(1, 4096, 54 ) ); //   1 to 2^12
