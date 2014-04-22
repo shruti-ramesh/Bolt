@@ -132,7 +132,7 @@ namespace bolt {
          */
 
 
-       /* template< typename InputIterator1,
+        template< typename InputIterator1,
                   typename InputIterator2,
                   typename InputIterator3,
                   typename OutputIterator >
@@ -153,7 +153,7 @@ namespace bolt {
                          InputIterator2 map,
                          InputIterator3 stencil,
                          OutputIterator result,
-                         const std::string& user_code="" );*/
+                         const std::string& user_code="" );
 
        /*! \brief This version of \p scatter copies elements from a source range to a destination array according to a
          * specified map. For each \p i in \p InputIterator1 in the range \p [first, last), scatter copies
@@ -205,7 +205,7 @@ namespace bolt {
          *
          */
 
-       /* template< typename InputIterator1,
+        template< typename InputIterator1,
                   typename InputIterator2,
                   typename InputIterator3,
                   typename OutputIterator,
@@ -230,7 +230,7 @@ namespace bolt {
                          InputIterator3 stencil,
                          OutputIterator result,
                          BinaryPredicate pred,
-                         const std::string& user_code="" );*/
+                         const std::string& user_code="" );
 
 
         /*!   \}  */

@@ -133,7 +133,6 @@ typedef HostMemory_UDDTestInt2 HostMemory_UDDTestIntFloat;
 ////////////////////////////////////////////
 ///////////scatter_if Google Test Cases ///////
 ////////////////////////////////////////////
-#if 0
 TEST( HostMemory_Int, Scatter_IfPredicate )
 {
     // VS2012 doesn't support initializer list
@@ -543,7 +542,7 @@ TEST( DeviceMemory_Int, MulticoreScatter_IfPredicate )
 }
 
 
-TEST_P(HostMemory_IntStdVector, Scatter_IfPredicate)
+TEST_P(HostMemory_IntStdVector, SerialScatter_IfPredicate)
 {
     std::vector<int> input( myStdVectSize,0);   
     std::vector<int> exp_result(myStdVectSize,0);    
@@ -590,7 +589,7 @@ TEST_P(HostMemory_IntStdVector, MulticoresScatter_IfPredicate)
     EXPECT_EQ(exp_result, result);
 }
 
-TEST_P( HostMemory_IntStdVector, Scatter_IfPredicate_Fancy_stencil )
+TEST_P( HostMemory_IntStdVector, SerialScatter_IfPredicate_Fancy_stencil )
 {
     std::vector<int> input( myStdVectSize,0); 
     std::vector<int> exp_result(myStdVectSize,0);    
@@ -637,7 +636,7 @@ TEST_P( HostMemory_IntStdVector, MulticoreScatter_IfPredicate_Fancy_stencil )
     EXPECT_EQ(exp_result, result);
 }
 
-TEST_P( HostMemory_IntStdVector, Scatter_IfPredicate_fancyInput )
+TEST_P( HostMemory_IntStdVector, SerialScatter_IfPredicate_fancyInput )
 {	
     bolt::cl::counting_iterator<int> input(0); 
     std::vector<int> exp_result(myStdVectSize,0);    
@@ -682,7 +681,7 @@ TEST_P( HostMemory_IntStdVector, MulticoreScatter_IfPredicate_fancyInput )
     EXPECT_EQ(exp_result, result);
 }
 
-TEST_P( DeviceMemory_IntBoltdVector, Scatter_IfPredicate )
+TEST_P( DeviceMemory_IntBoltdVector, SerialScatter_IfPredicate )
 {
 
     std::vector<int> n_map (myStdVectSize,0);	
@@ -1560,7 +1559,6 @@ TEST( DeviceMemory_Double, MulticoreScatter_IfPredicate )
     cmpArrays(exp_result, result);
 }
 
-#endif
 /* we don not have pick_iterator corresponding to that, so commented.
 
 TEST( DeviceMemory, Scatter_IfPredicate_Fancy_stencil )
@@ -4564,7 +4562,6 @@ TEST( HostMemoryRandomNo_Double, MulticoreScatter_com_Boost )
 }
 #endif
 
-#if 0
 TEST( UDDTestInt2, SerialScatter_IfPredicate)
 {
     int sz = 63;    
@@ -4757,7 +4754,7 @@ TEST(UDDTestIntFloatDouble, MulticoreScatter_ifPredicate )
 
     cmpArrays( exp_result, result );
 }
-#endif
+
 
 TEST_P(HostMemory_UDDTestInt2, SerialScatter_IfPredicate)
 {
@@ -5199,8 +5196,7 @@ TEST(HostMemory_IntStdVector, MultiCoreOffsetScatterPredicate)
     EXPECT_EQ(exp_result, result);
 }
 
-#if 0
-TEST(HostMemory_IntStdVector, OffsetScatterIfPredicate)
+TEST(HostMemory_IntStdVector, SerialOffsetScatterIfPredicate)
 {
 
     int n_input[10] =  {0,1,2,3,4,5,6,7,8,9};
@@ -5222,7 +5218,7 @@ TEST(HostMemory_IntStdVector, OffsetScatterIfPredicate)
     //for(int i=0; i<10 ; i++){ std::cout<<result[ i ]<<std::endl; }
     EXPECT_EQ(exp_result, result);
 }
-#endif
+
 
 TEST(HostMemory_IntStdVector, OffsetScatterPredicateMedium)
 {
@@ -5303,8 +5299,7 @@ TEST(HostMemory_IntStdVector, MultiCoreOffsetScatterPredicateMedium)
     EXPECT_EQ(exp_result, result);
 }
 
-#if 0
-TEST(HostMemory_IntStdVector, OffsetScatterIfPredicateMedium)
+TEST(HostMemory_IntStdVector, SerialOffsetScatterIfPredicateMedium)
 {
     size_t myStdVectSize = 512;
     int s_offset = 59;
@@ -5332,7 +5327,6 @@ TEST(HostMemory_IntStdVector, OffsetScatterIfPredicateMedium)
     EXPECT_EQ(exp_result, result);
 }
 
-#endif
 
 
 INSTANTIATE_TEST_CASE_P(ScatterIntLimit, HostMemory_IntStdVector, ::testing::Range(1, 4096, 54 ) ); //   1 to 2^12
