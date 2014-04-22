@@ -24,6 +24,12 @@ set( clBolt.Test.Iterator.Transform.Headers   ${BOLT_CL_TEST_DIR}/common/stdafx.
 
 set( clBolt.Test.Iterator.Transform.Files ${clBolt.Test.Iterator.Transform.Source} ${clBolt.Test.Iterator.Transform.Headers} )
 
+# Set project specific compile and link options
+if( MSVC )
+set( CMAKE_CXX_FLAGS "-bigobj ${CMAKE_CXX_FLAGS}" )
+                set( CMAKE_C_FLAGS "-bigobj ${CMAKE_C_FLAGS}" )
+endif()
+
 add_executable( clBolt.Test.Iterator.Transform ${clBolt.Test.Iterator.Transform.Files} )
 
 if(BUILD_TBB)
