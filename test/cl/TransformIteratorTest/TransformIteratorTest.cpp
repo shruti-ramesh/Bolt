@@ -27,6 +27,7 @@
 #include "bolt/cl/transform.h"
 #include "bolt/cl/count.h"
 #include "bolt/cl/reduce.h"
+#include "bolt/cl/reduce_by_key.h"
 #include "bolt/cl/generate.h"
 #include "bolt/cl/inner_product.h"
 #include "bolt/cl/scatter.h"
@@ -196,6 +197,66 @@ Serial_scan(
     return result;
 }
 
+template<
+    typename kType,
+    typename vType,
+    typename koType,
+    typename voType,
+    typename BinaryFunction>
+unsigned int
+Serial_reduce_by_key(
+	kType* keys,
+	vType* values,
+	koType* keys_output,
+	voType* values_output,
+	BinaryFunction binary_op,
+	unsigned int  numElements
+	)
+{
+ 
+    static_assert( std::is_convertible< vType, voType >::value,
+                   "InputIterator2 and OutputIterator's value types are not convertible." );
+
+    // do zeroeth element
+    values_output[0] = values[0];
+    keys_output[0] = keys[0];
+    unsigned int count = 1;
+    // rbk oneth element and beyond
+
+    unsigned int vi=1, vo=0, ko=0;
+    for ( unsigned int i= 1; i<numElements; i++)
+    {
+        // load keys
+        kType currentKey  = keys[i];
+        kType previousKey = keys[i-1];
+
+        // load value
+        voType currentValue = values[vi];
+        voType previousValue = values_output[vo];
+
+        previousValue = values_output[vo];
+        // within segment
+        if (currentKey == previousKey)
+        {
+            voType r = binary_op( previousValue, currentValue);
+            values_output[vo] = r;
+            keys_output[ko] = currentKey;
+
+        }
+        else // new segment
+        {
+            vo++;
+            ko++;
+            values_output[vo] = currentValue;
+            keys_output[ko] = currentKey;
+            count++; //To count the number of elements in the output array
+        }
+        vi++;
+    }
+
+    return count;
+
+}
 
 template<typename InputIterator1,
          typename InputIterator2,
@@ -2028,6 +2089,197 @@ TEST( TransformIterator, ScatterRoutine)
         global_id = 0; // Reset the global id counter
     }
  }
+
+
+TEST( TransformIterator, ReduceByKeyRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< int > svIn1Vec( length );
+        std::vector< int > svIn2Vec( length );
+        std::vector< int > svOutVec1( length );
+		std::vector< int > svOutVec2( length );
+        std::vector< int > stlOut1( length );
+		std::vector< int > stlOut2( length );
+        bolt::BCKND::device_vector< int > dvIn1Vec( length );
+        bolt::BCKND::device_vector< int > dvIn2Vec( length );
+        bolt::BCKND::device_vector< int > dvOutVec1( length );
+		bolt::BCKND::device_vector< int > dvOutVec2( length );
+
+        add_3 add3;
+        add_4 add4;
+        bolt::cl::equal_to<int> binary_predictor;
+        bolt::cl::plus<int> binary_operator;
+
+        gen_input gen;
+
+        typedef std::vector< int >::const_iterator                                                         sv_itr;
+        typedef bolt::BCKND::device_vector< int >::iterator                                                dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                      counting_itr;
+        typedef bolt::BCKND::constant_iterator< int >                                                      constant_itr;
+        typedef bolt::BCKND::transform_iterator< add_3, std::vector< int >::const_iterator>                sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_3, bolt::BCKND::device_vector< int >::iterator>       dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_4, std::vector< int >::const_iterator>                sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< add_4, bolt::BCKND::device_vector< int >::iterator>       dv_trf_itr_add4;    
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add4);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add4);
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(1);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+        global_id = 0;
+
+		std::vector< int > testInput1( svIn1Vec.begin(), svIn1Vec.end() );
+		std::vector< int > testInput2( svIn2Vec.begin(), svIn2Vec.end() );
+		for(int i=0; i<length; i++)
+		{
+			testInput1[i] = testInput1[i] + 3;
+			testInput2[i] = testInput2[i] + 4;
+		}
+
+		std::vector< int > constVector(length, 1);
+		std::vector< int > countVector(length);
+		for(int i=0; i<length; i++)
+		{
+			countVector[i]=i;
+		}
+
+        {/*Test case when inputs are trf Iterators*/
+            auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&testInput1[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&testInput1[0], &svIn2Vec[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		 {/*Test case when the first input is randomAccessIterator and the second is a trf_itr*/
+            auto sv_result = bolt::cl::reduce_by_key(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&svIn1Vec[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a constant iterator */
+            auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, const_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, const_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&testInput1[0], &constVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a  trf_itr */
+            auto sv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&constVector[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a counting iterator */      
+			auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, count_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, count_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&testInput1[0], &countVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		{/*Test case when the first input is counting iterator and the second is a trf_itr */
+            auto sv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&countVector[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+
+		 {/*Test case when the both inputs are randomAccessIterators*/
+            auto sv_result = bolt::cl::reduce_by_key(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&svIn1Vec[0], &svIn2Vec[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a counting iterator */
+            auto sv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, count_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, count_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&constVector[0], &countVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		 {/*Test case when the first input is counting iterator and the second is a constant iterator */
+            auto sv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, const_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, const_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<int, int, int, int, bolt::cl::plus< int >> (&countVector[0], &constVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+        global_id = 0; // Reset the global id counter
+    }
+}
 
 
 /* /brief List of possible tests
