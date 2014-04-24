@@ -1028,7 +1028,7 @@ reduce_by_key(
             dblog->CodePathTaken(BOLTLOG::BOLT_REDUCEBYKEY,BOLTLOG::BOLT_SERIAL_CPU,"::Reduce_By_Key::SERIAL_CPU");
             #endif
             int sizeOfOut = serial::reduce_by_key(ctl, keys_first, keys_last, values_first,keys_output, values_output, binary_pred, binary_op);
-			return bolt::cl::make_pair(keys_output, values_output);
+			return bolt::cl::make_pair(keys_output+sizeOfOut, values_output+sizeOfOut);
 		
     } 
 	else if (runMode == bolt::cl::control::MultiCoreCpu) {
