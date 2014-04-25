@@ -34,8 +34,43 @@ namespace cl {
         {   // identifying tag for random-access iterators
         };
 
-    //  This represents the host side definition of the counting_iterator template
-    //BOLT_TEMPLATE_FUNCTOR3( counting_iterator, int, float, double,
+        /*! \addtogroup fancy_iterators
+         */
+
+        /*! \addtogroup CL-CountingIterator
+        *   \ingroup fancy_iterators
+        *   \{
+        */
+
+        /*! counting_iterator iterates a range with sequential values.
+         *
+         *
+         *
+         *  \details The following demonstrates how to use a \p counting_iterator.
+         *
+         *  \code
+         *  #include <bolt/cl/counting_iterator.h>
+         *  #include <bolt/cl/transform.h>
+         *  ...
+         *
+         *  std::vector<int> vecSrc( 5 );
+         *  std::vector<int> vecDest( 5 );
+         *
+         *  std::fill( vecSrc.begin( ), vecSrc.end( ), 10 );
+         *
+         *  bolt::cl::control ctrl = control::getDefault( );
+         *  ...
+         *  bolt::cl::counting_iterator< int > count5( 5 );
+         *  bolt::cl::transform( ctrl, vecSrc.begin( ), vecSrc.end( ), count5, vecDest.begin( ), bolt::cl::plus< int >( ) );
+         *
+         *  // Output:
+         *  // vecDest = { 15, 16, 17, 18, 19 }
+         *
+         *  // counting_iterator can save bandwidth when used instead of a range of values.
+         *  \endcode
+         *
+         */
+
         template< typename value_type >
         class counting_iterator: public boost::iterator_facade< counting_iterator< value_type >, value_type, 
             counting_iterator_tag, value_type, int >
@@ -46,7 +81,6 @@ namespace cl {
             counting_iterator_tag, value_type, int >::difference_type  difference_type;
             typedef counting_iterator_tag                              iterator_category;
             typedef std::random_access_iterator_tag                    memory_system;
-            //typedef value_type                                         value_type;
             typedef value_type *                                       pointer; 
 
             struct Payload

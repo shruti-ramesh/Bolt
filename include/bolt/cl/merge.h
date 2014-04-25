@@ -34,13 +34,13 @@ namespace bolt {
         /*! \addtogroup algorithms
          */
 
-        /*! \addtogroup sort
+        /*! \addtogroup merging
         *   \ingroup algorithms
         *
         */
 
         /*! \addtogroup CL-merge
-        *   \ingroup sorting
+        *   \ingroup merging
         *   \{
         */
 

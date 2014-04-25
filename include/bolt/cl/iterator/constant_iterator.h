@@ -35,8 +35,41 @@ namespace cl {
 
         };
 
-        //  This represents the host side definition of the constant_iterator template
-        //BOLT_TEMPLATE_FUNCTOR3( constant_iterator, int, float, double,
+
+        /*! \addtogroup fancy_iterators
+         */
+
+        /*! \addtogroup CL-ConstantIterator
+        *   \ingroup fancy_iterators
+        *   \{
+        */
+
+        /*! constant_iterator iterates a range with a constant value.
+         *
+         *
+         *
+         *  \details The following demonstrates how to use a \p constant_iterator.
+         *
+         *  \code
+         *  #include <bolt/cl/constant_iterator.h>
+         *  #include <bolt/cl/transform.h>
+         *  ...
+         *
+         *  std::vector<int> vecSrc( 5 );
+         *  std::vector<int> vecDest( 5 );
+         *
+         *  std::fill( vecSrc.begin( ), vecSrc.end( ), 10 );
+         *
+         *  bolt::cl::control ctrl = control::getDefault( );
+         *  ...
+         *  bolt::cl::constant_iterator< int > const5( 5 );
+         *  bolt::cl::transform( ctrl, vecSrc.begin( ), vecSrc.end( ), const5, vecDest.begin( ), bolt::cl::plus< int >( ) );
+         *
+         *  // vecDest is vector filled with the value 15, the sum of vecSrc and the constant value 5 from the iterator
+         *  // constant_iterator can save bandwidth when used instead of a range of values.
+         *  \endcode
+         *
+         */
         template< typename value_type >
         class constant_iterator: public boost::iterator_facade< constant_iterator< value_type >, value_type, 
             constant_iterator_tag, value_type, int >
