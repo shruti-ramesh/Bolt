@@ -33,8 +33,8 @@ namespace bolt {
 
         /*! \addtogroup algorithms
          */
-
-        /*! \addtogroup merging
+		
+		/*! \addtogroup merging
         *   \ingroup algorithms
         */
 
@@ -43,7 +43,7 @@ namespace bolt {
         *   \{
         */
 
-
+		
         /*! \brief \p merge returns the result of combining the two sorted range [first1, last1] and [first2, last2] in
         * to a single sorted range [result , result + (last1-first1) + ( last2-first2)]
         *

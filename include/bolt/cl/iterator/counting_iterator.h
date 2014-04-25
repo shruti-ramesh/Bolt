@@ -1,17 +1,17 @@
-/***************************************************************************       
-*   Copyright 2012 - 2013 Advanced Micro Devices, Inc.                                     
-*                                                                                    
-*   Licensed under the Apache License, Version 2.0 (the "License");   
-*   you may not use this file except in compliance with the License.                 
-*   You may obtain a copy of the License at                                          
-*                                                                                    
-*       http://www.apache.org/licenses/LICENSE-2.0                      
-*                                                                                    
-*   Unless required by applicable law or agreed to in writing, software              
-*   distributed under the License is distributed on an "AS IS" BASIS,              
-*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.         
-*   See the License for the specific language governing permissions and              
-*   limitations under the License.                                                   
+/***************************************************************************
+*   Copyright 2012 - 2013 Advanced Micro Devices, Inc.
+*
+*   Licensed under the Apache License, Version 2.0 (the "License");
+*   you may not use this file except in compliance with the License.
+*   You may obtain a copy of the License at
+*
+*       http://www.apache.org/licenses/LICENSE-2.0
+*
+*   Unless required by applicable law or agreed to in writing, software
+*   distributed under the License is distributed on an "AS IS" BASIS,
+*   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+*   See the License for the specific language governing permissions and
+*   limitations under the License.
 
 ***************************************************************************/
 #pragma once
@@ -72,16 +72,16 @@ namespace cl {
          */
 
         template< typename value_type >
-        class counting_iterator: public boost::iterator_facade< counting_iterator< value_type >, value_type, 
+        class counting_iterator: public boost::iterator_facade< counting_iterator< value_type >, value_type,
             counting_iterator_tag, value_type, int >
         {
         public:
 
-	    typedef typename boost::iterator_facade< counting_iterator< value_type >, value_type, 
+	    typedef typename boost::iterator_facade< counting_iterator< value_type >, value_type,
             counting_iterator_tag, value_type, int >::difference_type  difference_type;
             typedef counting_iterator_tag                              iterator_category;
             typedef std::random_access_iterator_tag                    memory_system;
-            typedef value_type *                                       pointer; 
+            typedef value_type *                                       pointer;
 
             struct Payload
             {
@@ -89,7 +89,7 @@ namespace cl {
             };
 
             //  Basic constructor requires a reference to the container and a positional element
-            counting_iterator( value_type init, const control& ctl = control::getDefault( ) ): 
+            counting_iterator( value_type init, const control& ctl = control::getDefault( ) ):
                 m_initValue( init ),
                 m_Index( 0 )
             {
@@ -111,14 +111,14 @@ namespace cl {
             {
             }
 
-            operator pointer() { 
-                return &m_initValue; 
-            } 
+            operator pointer() {
+                return &m_initValue;
+            }
 
-            operator const pointer() const { 
-                return &m_initValue; 
-            } 
-    
+            operator const pointer() const {
+                return &m_initValue;
+            }
+
             counting_iterator< value_type >& operator= ( const counting_iterator< value_type >& rhs )
             {
                 if( this == &rhs )
@@ -129,13 +129,13 @@ namespace cl {
                 m_Index = rhs.m_Index;
                 return *this;
             }
-                
+
             counting_iterator< value_type >& operator+= ( const difference_type & n )
             {
                 advance( n );
                 return *this;
             }
-                
+
             const counting_iterator< value_type > operator+ ( const difference_type & n ) const
             {
                 counting_iterator< value_type > result( *this );
@@ -222,9 +222,9 @@ namespace cl {
     //)
 
     //  This string represents the device side definition of the counting_iterator template
-    static std::string deviceCountingIterator = 
+    static std::string deviceCountingIterator =
         std::string("#if !defined(BOLT_CL_COUNTING_ITERATOR) \n") +
-        STRINGIFY_CODE( 
+        STRINGIFY_CODE(
         namespace bolt { namespace cl { \n
         template< typename T > \n
         class counting_iterator \n
@@ -260,7 +260,7 @@ namespace cl {
         }; \n
     } } \n
     )
-    +  std::string("#endif \n"); 
+    +  std::string("#endif \n");
 
 
     template< typename Type >
