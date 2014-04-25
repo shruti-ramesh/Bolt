@@ -528,6 +528,21 @@ TEST( VectorReverseIterator, Size6AndValue7Dereference )
     EXPECT_EQ( 7, *(myIter + 5) );
 }
 
+TEST( VectorReverseIterator, Size6AndValue7DereferenceWithArray )
+{
+    bolt::BCKND::device_vector< int, concurrency::array > dV( 6ul, 7 );
+    EXPECT_EQ( 6, dV.size( ) );
+
+    bolt::BCKND::device_vector< int,  concurrency::array>::reverse_iterator myIter = dV.rbegin( );
+    EXPECT_EQ( 7, *(myIter + 0) );
+    EXPECT_EQ( 7, *(myIter + 1) );
+    EXPECT_EQ( 7, *(myIter + 2) );
+    EXPECT_EQ( 7, *(myIter + 3) );
+    EXPECT_EQ( 7, *(myIter + 4) );
+    EXPECT_EQ( 7, *(myIter + 5) );
+}
+
+
 //
 //TEST( VectorReverseIterator, Size6AndValue7OperatorValueType )
 //{
@@ -1052,6 +1067,28 @@ TEST( Vector, DataWriteView )
     EXPECT_EQ( 4, mySP[ 3 ] );
     EXPECT_EQ( 5, mySP[ 4 ] );
 }
+
+TEST( Vector, test )
+{
+    std::vector< int > v( 5 );
+    bolt::amp::device_vector< int, concurrency::array > dV( v.begin(), 5 );
+    EXPECT_EQ( 5, dV.size( ) );
+
+    bolt::amp::device_vector< int, concurrency::array  >::pointer mySP = dV.data( );
+    mySP[ 0 ] = 1;
+    mySP[ 1 ] = 2;
+    mySP[ 2 ] = 3;
+    mySP[ 3 ] = 4;
+    mySP[ 4 ] = 5;
+
+    EXPECT_EQ( 1, mySP[ 0 ] );
+    EXPECT_EQ( 2, mySP[ 1 ] );
+    EXPECT_EQ( 3, mySP[ 2 ] );
+    EXPECT_EQ( 4, mySP[ 3 ] );
+    EXPECT_EQ( 5, mySP[ 4 ] );
+}
+
+
 
 TEST( Vector, ClearView )
 {
