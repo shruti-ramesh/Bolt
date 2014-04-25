@@ -27,6 +27,11 @@ TODO:
 #pragma once
 #include "bolt/cl/transform.h"
 #include "bolt/cl/reduce.h"
+
+#include <bolt/cl/iterator/iterator_traits.h>
+#include <bolt/cl/iterator/addressof.h>
+
+
 //TBB Includes
 #ifdef ENABLE_TBB
 #include "bolt/btbb/inner_product.h"
@@ -262,17 +267,9 @@ namespace cl{
         return detail::reduce( ctl, tempDV.begin(), tempDV.end(), init, f1, cl_code);
     };
 
-	template<typename InputIterator, typename OutputType, typename BinaryFunction1,typename BinaryFunction2>
-    OutputType inner_product(bolt::cl::control &ctl,  const InputIterator& first1,
-                const InputIterator& last1, const InputIterator& first2, const OutputType& init,
-                const BinaryFunction1& f1, const BinaryFunction2& f2, const std::string& user_code,
-                bolt::cl::fancy_iterator_tag )
-    {
-		return inner_product( ctl, first1, last1, first2, init, f1, f2, user_code, bolt::cl::memory_system<InputIterator>::type()  );
-	}
 
 
-	template<typename InputIterator, typename OutputType, typename BinaryFunction1,typename BinaryFunction2>
+    template<typename InputIterator, typename OutputType, typename BinaryFunction1,typename BinaryFunction2>
     OutputType inner_product(bolt::cl::control &ctl,  const InputIterator& first1,
                 const InputIterator& last1, const InputIterator& first2, const OutputType& init,
                 const BinaryFunction1& f1, const BinaryFunction2& f2, const std::string& user_code,
@@ -305,7 +302,19 @@ namespace cl{
 
 	}
 
+ template<typename InputIterator, typename OutputType, typename BinaryFunction1,typename BinaryFunction2>
+    OutputType inner_product(bolt::cl::control &ctl,  const InputIterator& first1,
+                const InputIterator& last1, const InputIterator& first2, const OutputType& init,
+                const BinaryFunction1& f1, const BinaryFunction2& f2, const std::string& user_code,
+                bolt::cl::fancy_iterator_tag )
+    {
+		return inner_product( ctl, first1, last1, first2, init, f1, f2, user_code, typename bolt::cl::memory_system<InputIterator>::type()  );
+    }
+
+
 } //end of namespace cl
+
+
 
     template<typename InputIterator, typename OutputType, typename BinaryFunction1, typename BinaryFunction2>
     typename std::enable_if< 
@@ -339,7 +348,7 @@ namespace cl{
             #endif
             
             return serial::inner_product( ctl, first1, last1, first2, init,
-				f1, f2, user_code, std::iterator_traits<InputIterator>::iterator_category()  );
+				f1, f2, user_code, typename std::iterator_traits<InputIterator>::iterator_category()  );
 
         }
         else if(runMode == bolt::cl::control::MultiCoreCpu)
@@ -349,7 +358,7 @@ namespace cl{
                    dblog->CodePathTaken(BOLTLOG::BOLT_INNERPRODUCT,BOLTLOG::BOLT_MULTICORE_CPU,"::Inner_Product::MULTICORE_CPU");
                    #endif
                    return btbb::inner_product(ctl, first1, last1, first2,
-					   init, f1, f2, user_code, std::iterator_traits<InputIterator>::iterator_category());
+					   init, f1, f2, user_code, typename std::iterator_traits<InputIterator>::iterator_category());
             #else
                    throw std::runtime_error("MultiCoreCPU Version of inner_product is not Enabled! \n");
             #endif
@@ -360,7 +369,7 @@ namespace cl{
             dblog->CodePathTaken(BOLTLOG::BOLT_INNERPRODUCT,BOLTLOG::BOLT_OPENCL_GPU,"::Inner_Product::OPENCL_GPU");
             #endif
             return cl::inner_product( ctl, first1, last1, first2, init,
-				f1, f2, user_code, std::iterator_traits<InputIterator>::iterator_category() );
+				f1, f2, user_code, typename std::iterator_traits<InputIterator>::iterator_category() );
         } 
     }
     
