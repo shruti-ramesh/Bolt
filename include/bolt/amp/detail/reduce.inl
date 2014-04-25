@@ -21,7 +21,7 @@
 
 #if !defined( BOLT_AMP_REDUCE_INL )
 #define BOLT_AMP_REDUCE_INL
-#define REDUCE_WAVEFRONT_SIZE 256 //64
+#define REDUCE_WAVEFRONT_SIZE 512 //64
 #define _REDUCE_STEP(_LENGTH, _IDX, _W) \
 if ((_IDX < _W) && ((_IDX + _W) < _LENGTH)) {\
 	iType mine = scratch[_IDX]; \
@@ -68,25 +68,20 @@ namespace bolt
             {
                 typedef typename std::iterator_traits< DVInputIterator >::value_type iType;
 
-                //Now create a staging array ; May support zero-copy in the future?!
-                concurrency::accelerator cpuAccelerator = concurrency::
-                                                        accelerator(concurrency::accelerator::cpu_accelerator);
-                concurrency::accelerator_view cpuAcceleratorView = cpuAccelerator.default_view;
+                const int szElements = static_cast< int >( std::distance( first, last ) );
 
-
-                const unsigned int szElements = static_cast< unsigned int >( std::distance( first, last ) );
-
-
-				unsigned int length = (REDUCE_WAVEFRONT_SIZE * 65535);	/* limit by MS c++ amp */
+				int numTiles = 64*32;			/* Max no. of WG for Tahiti(32 compute Units) */
+				int length = (REDUCE_WAVEFRONT_SIZE*numTiles);	
 				length = szElements < length ? szElements : length;
 				unsigned int residual = length % REDUCE_WAVEFRONT_SIZE;
 				length = residual ? (length + REDUCE_WAVEFRONT_SIZE - residual): length ;
-				unsigned int numTiles = (length / REDUCE_WAVEFRONT_SIZE);
+				
+				numTiles = static_cast< int >((szElements/REDUCE_WAVEFRONT_SIZE)>= numTiles?(numTiles):
+									(std::ceil( static_cast< float >( szElements ) / REDUCE_WAVEFRONT_SIZE) ));
 
-				concurrency::array< iType, 1 > resultArray(numTiles, ctl.getAccelerator().default_view,
-                                                                                        cpuAcceleratorView);
-                concurrency::array_view<iType, 1> result ( resultArray );
-
+				iType *cpuPointerReduce = new iType[numTiles];
+				concurrency::array_view<iType, 1> result(numTiles, cpuPointerReduce);
+				result.discard_data();
 
 				concurrency::extent< 1 > inputExtent(length);
                 concurrency::tiled_extent< REDUCE_WAVEFRONT_SIZE > tiledExtentReduce = inputExtent.tile< REDUCE_WAVEFRONT_SIZE >();
@@ -99,14 +94,14 @@ namespace bolt
                     concurrency::parallel_for_each(ctl.getAccelerator().default_view,
                                                    tiledExtentReduce,
                                                    [ first,
-												   szElements,
-												   length,
+													 szElements,
+													 length,
                                                      result,
                                                      binary_op ]
                                                    ( concurrency::tiled_index<REDUCE_WAVEFRONT_SIZE> t_idx ) restrict(amp)
                     {
-						unsigned int gx = t_idx.global[0];
-						unsigned int gloId = gx;
+						int gx = t_idx.global[0];
+						int gloId = gx;
 						tile_static iType scratch[REDUCE_WAVEFRONT_SIZE];
 						//  Initialize local data store
 						unsigned int tileIndex = t_idx.local[0];
@@ -133,6 +128,7 @@ namespace bolt
 
 						unsigned int tail = szElements - (t_idx.tile[0] * REDUCE_WAVEFRONT_SIZE);
 
+						_REDUCE_STEP(tail, tileIndex, 256);
 						_REDUCE_STEP(tail, tileIndex, 128);
 						_REDUCE_STEP(tail, tileIndex, 64);
 						_REDUCE_STEP(tail, tileIndex, 32);
@@ -156,11 +152,13 @@ namespace bolt
                     });
                     
 					iType acc = static_cast<iType>(init);
-					iType *cpuPointerReduce =  result.data();
-					for(unsigned int i = 0; i < numTiles; ++i)
+					result.synchronize();
+
+					for(int i = 0; i < numTiles; ++i)
 					{
 						acc = binary_op(acc, cpuPointerReduce[i]);
 					}
+					delete cpuPointerReduce;
 					return acc;
                 }
                 catch(std::exception &e)
@@ -186,7 +184,7 @@ namespace bolt
             {
                 /*************/
                 typedef typename std::iterator_traits<InputIterator>::value_type iType;
-                unsigned int szElements = static_cast< unsigned int >(last - first);
+                int szElements = static_cast< int >(last - first);
                 if (szElements == 0)
                     return init;
                 /*TODO - probably the forceRunMode should be replaced by getRunMode and setRunMode*/
@@ -234,7 +232,7 @@ namespace bolt
                                   bolt::amp::device_vector_tag)
             {
                 typedef typename std::iterator_traits<DVInputIterator>::value_type iType;
-                unsigned int szElements = static_cast< unsigned int > (last - first);
+                int szElements = static_cast< int > (last - first);
                 if (szElements == 0)
                     return init;
 
@@ -279,7 +277,7 @@ namespace bolt
             {
                 /*************/
                 typedef typename std::iterator_traits<InputIterator>::value_type iType;
-                unsigned int szElements = static_cast< unsigned int >(last - first);
+                int szElements = static_cast< int >(last - first);
                 if (szElements == 0)
                     return init;
                 /*TODO - probably the forceRunMode should be replaced by getRunMode and setRunMode*/

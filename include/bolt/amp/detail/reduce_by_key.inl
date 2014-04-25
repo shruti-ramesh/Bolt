@@ -27,6 +27,7 @@
 #include <iostream>
 #include <fstream>
 
+#include "bolt/amp/iterator/iterator_traits.h"
 #ifdef ENABLE_TBB
 //TBB Includes
 #include "bolt/btbb/reduce_by_key.h"
@@ -72,7 +73,7 @@ gold_reduce_by_key_enqueue( InputIterator1 keys_first,
     static_assert( std::is_convertible< vType, voType >::value,
                    "InputIterator2 and OutputIterator's value types are not convertible." );
 
-   unsigned int numElements = static_cast< unsigned int >( std::distance( keys_first, keys_last ) );
+   int numElements = static_cast< int >( std::distance( keys_first, keys_last ) );
 
     // do zeroeth element
     *values_output = *values_first;
@@ -147,7 +148,7 @@ reduce_by_key_enqueue(
     typedef typename std::iterator_traits< DVOutputIterator1 >::value_type koType;
     typedef typename std::iterator_traits< DVOutputIterator2 >::value_type voType;
    
-    unsigned int numElements = static_cast< unsigned int >( std::distance( keys_first, keys_last ) );
+    int numElements = static_cast< int >( std::distance( keys_first, keys_last ) );
     const unsigned int kernel0_WgSize = WAVESIZE*KERNEL02WAVES;
     const unsigned int kernel1_WgSize = WAVESIZE*KERNEL1WAVES ;
     const unsigned int kernel2_WgSize = WAVESIZE*KERNEL02WAVES;
@@ -160,7 +161,7 @@ reduce_by_key_enqueue(
         sizeInputBuff &= ~modWgSize;
         sizeInputBuff += kernel0_WgSize;
     }
-    unsigned int numWorkGroupsK0 = static_cast< unsigned int >( sizeInputBuff / (kernel0_WgSize) );
+    int numWorkGroupsK0 = static_cast< int >( sizeInputBuff / (kernel0_WgSize) );
     //  Ceiling function to bump the size of the sum array to the next whole wavefront size
     unsigned int sizeScanBuff = numWorkGroupsK0;
     modWgSize = (sizeScanBuff & (kernel0_WgSize-1));
@@ -194,7 +195,7 @@ reduce_by_key_enqueue(
 			] ( concurrency::index< 1 > t_idx ) restrict(amp)
 	   {
 
-			unsigned int gloId = t_idx[ 0 ];
+			int gloId = t_idx[ 0 ];
 
 
 			if (gloId >= numElements)
@@ -263,8 +264,8 @@ reduce_by_key_enqueue(
 					] ( concurrency::tiled_index< kernel0_WgSize > t_idx )  restrict(amp)
 			  {
 
-				unsigned int gloId = t_idx.global[ 0 ] + global_offset ;
-				unsigned int groId = t_idx.tile[ 0 ] + wg_offset ;
+				int gloId = t_idx.global[ 0 ] + global_offset ;
+				int groId = t_idx.tile[ 0 ] + wg_offset ;
 				unsigned int locId = t_idx.local[ 0 ];
 				unsigned int wgSize = kernel0_WgSize;
 
@@ -325,7 +326,7 @@ reduce_by_key_enqueue(
     /**********************************************************************************
      *  Kernel 2
      *********************************************************************************/
-    unsigned int workPerThread = static_cast< unsigned int >( sizeScanBuff / kernel1_WgSize );
+    int workPerThread = static_cast< int >( sizeScanBuff / kernel1_WgSize );
     workPerThread = workPerThread ? workPerThread : 1;		
     concurrency::extent< 1 > globalSizeK2( kernel1_WgSize );
     concurrency::tiled_extent< kernel1_WgSize > tileK2 = globalSizeK2.tile< kernel1_WgSize >();
@@ -345,18 +346,18 @@ reduce_by_key_enqueue(
         ] ( concurrency::tiled_index< kernel1_WgSize > t_idx ) restrict(amp)
   {
 
-    unsigned int gloId = t_idx.global[ 0 ];
-    unsigned int groId = t_idx.tile[ 0 ];
-    unsigned int locId = t_idx.local[ 0 ];
-    unsigned int wgSize = kernel1_WgSize;
-    unsigned int mapId  = gloId * workPerThread;
+     int gloId = t_idx.global[ 0 ];
+    int groId = t_idx.tile[ 0 ];
+    int locId = t_idx.local[ 0 ];
+    int wgSize = kernel1_WgSize;
+    int mapId  = gloId * workPerThread;
 
     tile_static vType ldsVals[ WAVESIZE*KERNEL02WAVES ];
     tile_static int ldsKeys[ WAVESIZE*KERNEL02WAVES ];
     
 
     // do offset of zero manually
-    unsigned int offset;
+    int offset;
     int key;
     voType workSum;
 
@@ -493,7 +494,7 @@ reduce_by_key_enqueue(
         ] ( concurrency::tiled_index< kernel2_WgSize > t_idx ) restrict(amp)
   {
 
-	unsigned int gloId = t_idx.global[ 0 ] + global_offset ;
+	int gloId = t_idx.global[ 0 ] + global_offset ;
 	unsigned int groId = t_idx.tile[ 0 ] + wg_offset ;
 	unsigned int locId = t_idx.local[ 0 ];
 	unsigned int wgSize = kernel2_WgSize;
@@ -594,16 +595,7 @@ template<
     typename OutputIterator2,
     typename BinaryPredicate,
     typename BinaryFunction >
-typename std::enable_if<
-             !(std::is_base_of<typename device_vector<typename
-               std::iterator_traits<InputIterator1>::value_type>::iterator,InputIterator1>::value &&
-               std::is_base_of<typename device_vector<typename
-               std::iterator_traits<InputIterator2>::value_type>::iterator,InputIterator2>::value &&
-               std::is_base_of<typename device_vector<typename
-               std::iterator_traits<OutputIterator1>::value_type>::iterator,OutputIterator2>::value &&
-               std::is_base_of<typename device_vector<typename
-               std::iterator_traits<OutputIterator1>::value_type>::iterator,OutputIterator2>::value),
-         bolt::amp::pair<OutputIterator1, OutputIterator2> >::type
+bolt::amp::pair<OutputIterator1, OutputIterator2>
 reduce_by_key_pick_iterator(
     control& ctl,
     const InputIterator1& keys_first,
@@ -612,7 +604,9 @@ reduce_by_key_pick_iterator(
     const OutputIterator1& keys_output,
     const OutputIterator2& values_output,
     const BinaryPredicate& binary_pred,
-    const BinaryFunction& binary_op)
+    const BinaryFunction& binary_op,
+	std::random_access_iterator_tag,
+	std::random_access_iterator_tag )
 {
 
     typedef typename std::iterator_traits< InputIterator1 >::value_type kType;
@@ -621,7 +615,7 @@ reduce_by_key_pick_iterator(
     typedef typename std::iterator_traits< OutputIterator2 >::value_type voType;
     static_assert( std::is_convertible< vType, voType >::value, "InputValue and Output iterators are incompatible" );
 
-    unsigned int numElements = static_cast< unsigned int >( std::distance( keys_first, keys_last ) );
+    int numElements = static_cast< int >( std::distance( keys_first, keys_last ) );
     if( numElements == 1 )
         return  bolt::amp::make_pair( keys_last, values_first+numElements );
 
@@ -649,7 +643,6 @@ reduce_by_key_pick_iterator(
     else {
     unsigned int sizeOfOut;
     {
-
         // Map the input iterator to a device_vector
         device_vector< kType, concurrency::array_view > dvKeys(  keys_first, keys_last, false, ctl );
         device_vector< vType, concurrency::array_view > dvValues( values_first, numElements, false, ctl );
@@ -681,16 +674,7 @@ reduce_by_key_pick_iterator(
     typename DVOutputIterator2,
     typename BinaryPredicate,
     typename BinaryFunction >
-typename std::enable_if<
-             (std::is_base_of<typename device_vector<typename
-               std::iterator_traits<DVInputIterator1>::value_type>::iterator,DVInputIterator1>::value &&
-               std::is_base_of<typename device_vector<typename
-               std::iterator_traits<DVInputIterator2>::value_type>::iterator,DVInputIterator2>::value &&
-               std::is_base_of<typename device_vector<typename
-               std::iterator_traits<DVOutputIterator1>::value_type>::iterator,DVOutputIterator1>::value &&
-               std::is_base_of<typename device_vector<typename
-               std::iterator_traits<DVOutputIterator2>::value_type>::iterator,DVOutputIterator2>::value),
-           bolt::amp::pair<DVOutputIterator1, DVOutputIterator2> >::type
+bolt::amp::pair<DVOutputIterator1, DVOutputIterator2>
 reduce_by_key_pick_iterator(
     control& ctl,
     const DVInputIterator1& keys_first,
@@ -699,7 +683,9 @@ reduce_by_key_pick_iterator(
     const DVOutputIterator1& keys_output,
     const DVOutputIterator2& values_output,
     const BinaryPredicate& binary_pred,
-    const BinaryFunction& binary_op)
+    const BinaryFunction& binary_op,
+	bolt::amp::device_vector_tag,
+	bolt::amp::device_vector_tag )
 {
 
     typedef typename std::iterator_traits< DVInputIterator1 >::value_type kType;
@@ -708,7 +694,7 @@ reduce_by_key_pick_iterator(
     typedef typename std::iterator_traits< DVOutputIterator2 >::value_type voType;
     static_assert( std::is_convertible< vType, voType >::value, "InputValue and Output iterators are incompatible" );
 
-    unsigned int numElements = static_cast< unsigned int >( std::distance( keys_first, keys_last ) );
+    int numElements = static_cast< int >( std::distance( keys_first, keys_last ) );
     if( numElements == 1 )
         return  bolt::amp::make_pair( keys_last, values_first+numElements );
 
@@ -758,6 +744,72 @@ reduce_by_key_pick_iterator(
 
 }
 
+/*!
+* \brief This overload is called strictly for non-device_vector iterators
+* \details This template function overload is used to seperate device_vector iterators from all other iterators
+*/
+template<
+    typename InputIterator1,
+    typename InputIterator2,
+    typename OutputIterator1,
+    typename OutputIterator2,
+    typename BinaryPredicate,
+    typename BinaryFunction >
+bolt::amp::pair<OutputIterator1, OutputIterator2>
+reduce_by_key_pick_iterator(
+    control& ctl,
+    const InputIterator1& keys_first,
+    const InputIterator1& keys_last,
+    const InputIterator2& values_first,
+    const OutputIterator1& keys_output,
+    const OutputIterator2& values_output,
+    const BinaryPredicate& binary_pred,
+    const BinaryFunction& binary_op,
+	bolt::amp::fancy_iterator_tag,
+	std::random_access_iterator_tag )
+{
+
+    typedef typename std::iterator_traits< InputIterator1 >::value_type kType;
+    typedef typename std::iterator_traits< InputIterator2 >::value_type vType;
+    typedef typename std::iterator_traits< OutputIterator1 >::value_type koType;
+    typedef typename std::iterator_traits< OutputIterator2 >::value_type voType;
+
+    int numElements = static_cast< int >( std::distance( keys_first, keys_last ) );
+    if( numElements == 1 )
+        return  bolt::amp::make_pair( keys_last, values_first+numElements );
+
+    bolt::amp::control::e_RunMode runMode = ctl.getForceRunMode();  // could be dynamic choice some day.
+    if(runMode == bolt::amp::control::Automatic) {
+        runMode = ctl.getDefaultPathToRun();
+    }
+   
+    if (runMode == bolt::amp::control::SerialCpu) {
+          
+            unsigned int sizeOfOut = gold_reduce_by_key_enqueue( keys_first, keys_last, values_first, keys_output,
+            values_output, binary_pred, binary_op);
+
+            return   bolt::amp::make_pair(keys_output+sizeOfOut, values_output+sizeOfOut);
+
+    } else if (runMode == bolt::amp::control::MultiCoreCpu) {
+
+        #ifdef ENABLE_TBB     
+            unsigned int sizeOfOut = bolt::btbb::reduce_by_key( keys_first, keys_last, values_first, keys_output, values_output, binary_pred, binary_op);
+            return   bolt::amp::make_pair(keys_output+sizeOfOut, values_output+sizeOfOut);
+        #else
+            throw std::runtime_error("MultiCoreCPU Version of ReduceByKey not Enabled! \n");
+        #endif
+    }
+    else {
+    //Now call the actual AMP algorithm
+            unsigned int sizeOfOut = reduce_by_key_enqueue( ctl, keys_first, keys_last, values_first, keys_output,
+            values_output, binary_pred, binary_op);
+            return   bolt::amp::make_pair(keys_output+sizeOfOut, values_output+sizeOfOut);
+    }
+
+}
+
+
+
 /*********************************************************************************************************************
  * Detect Random Access
  ********************************************************************************************************************/
@@ -780,12 +832,14 @@ reduce_by_key_detect_random_access(
     const OutputIterator2  values_output,
     const BinaryPredicate binary_pred,
     const BinaryFunction binary_op,
-    std::random_access_iterator_tag )
+    std::random_access_iterator_tag,
+	std::random_access_iterator_tag )
 {
     return detail::reduce_by_key_pick_iterator( ctl, keys_first, keys_last, values_first, keys_output, values_output,
-        binary_pred, binary_op);
+        binary_pred, binary_op,
+		typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( ) );
 }
-
 
 template<
     typename InputIterator1,
@@ -804,7 +858,31 @@ reduce_by_key_detect_random_access(
     const OutputIterator2  values_output,
     const BinaryPredicate binary_pred,
     const BinaryFunction binary_op,
-    std::input_iterator_tag )
+    std::random_access_iterator_tag, bolt::amp::fancy_iterator_tag )
+{
+    //  TODO:  It should be possible to support non-random_access_iterator_tag iterators, if we copied the data
+    //  to a temporary buffer.  Should we?
+	static_assert( std::is_same< OutputIterator2, bolt::amp::fancy_iterator_tag >::value , "It is not possible to output to fancy iterators; they are not mutable" );
+};
+
+template<
+    typename InputIterator1,
+    typename InputIterator2,
+    typename OutputIterator1,
+    typename OutputIterator2,
+    typename BinaryPredicate,
+    typename BinaryFunction>
+bolt::amp::pair<OutputIterator1, OutputIterator2>
+reduce_by_key_detect_random_access(
+    control &ctl,
+    const InputIterator1  keys_first,
+    const InputIterator1  keys_last,
+    const InputIterator2  values_first,
+    const OutputIterator1  keys_output,
+    const OutputIterator2  values_output,
+    const BinaryPredicate binary_pred,
+    const BinaryFunction binary_op,
+    std::input_iterator_tag, std::input_iterator_tag  )
 {
     //  TODO:  It should be possible to support non-random_access_iterator_tag iterators, if we copied the data
     //  to a temporary buffer.  Should we?
@@ -846,7 +924,8 @@ reduce_by_key(
         values_output,
         binary_pred,
         binary_op,
-        typename std::iterator_traits< InputIterator1 >::iterator_category( )
+        typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( )
     ); // return
 }
 
@@ -877,7 +956,8 @@ reduce_by_key(
         values_output,
         binary_pred,
         binary_op,
-        typename std::iterator_traits< InputIterator1 >::iterator_category( )
+        typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( )
     ); // return
 }
 
@@ -908,7 +988,8 @@ reduce_by_key(
         values_output,
         binary_pred,
         binary_op,
-        typename std::iterator_traits< InputIterator1 >::iterator_category( )
+        typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( )
     ); // return
 }
 
@@ -942,7 +1023,8 @@ reduce_by_key(
         values_output,
         binary_pred,
         binary_op,
-        typename std::iterator_traits< InputIterator1 >::iterator_category( )
+        typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( )
     ); // return
 }
 
@@ -974,7 +1056,8 @@ reduce_by_key(
         values_output,
         binary_pred,
         binary_op,
-        typename std::iterator_traits< InputIterator1 >::iterator_category( )
+        typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( )
     ); // return
 }
 
@@ -1006,7 +1089,8 @@ reduce_by_key(
         values_output,
         binary_pred,
         binary_op,
-        typename std::iterator_traits< InputIterator1 >::iterator_category( )
+        typename std::iterator_traits< InputIterator1 >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator2 >::iterator_category( )
     ); // return
 }
 

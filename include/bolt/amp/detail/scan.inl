@@ -55,6 +55,7 @@
 #include <type_traits>
 #include "bolt/amp/bolt.h"
 #include "bolt/amp/device_vector.h"
+#include "bolt/amp/iterator/iterator_traits.h"
 #include <amp.h>
 
 #ifdef ENABLE_TBB
@@ -102,7 +103,7 @@ unsigned int k0_stepNum, k1_stepNum, k2_stepNum;
 
     int exclusive = inclusive ? 0 : 1;
 
-    unsigned int numElements = static_cast< unsigned int >( std::distance( first, last ) );
+    int numElements = static_cast< int >( std::distance( first, last ) );
     const unsigned int kernel0_WgSize = SCAN_WAVESIZE*SCAN_KERNELWAVES;
     const unsigned int kernel1_WgSize = SCAN_WAVESIZE*SCAN_KERNELWAVES ;
     const unsigned int kernel2_WgSize = SCAN_WAVESIZE*SCAN_KERNELWAVES;
@@ -115,7 +116,7 @@ unsigned int k0_stepNum, k1_stepNum, k2_stepNum;
         sizeInputBuff &= ~modWgSize;
         sizeInputBuff += (kernel0_WgSize*2);
     }
-    unsigned int numWorkGroupsK0 = static_cast< unsigned int >( sizeInputBuff / (kernel0_WgSize*2) );
+    int numWorkGroupsK0 = static_cast< int >( sizeInputBuff / (kernel0_WgSize*2) );
     //  Ceiling function to bump the size of the sum array to the next whole wavefront size
     unsigned int sizeScanBuff = numWorkGroupsK0;
     modWgSize = (sizeScanBuff & ((kernel0_WgSize*2)-1));
@@ -173,13 +174,13 @@ aProfiler.set(AsyncProfiler::memory, 2*numElements*sizeof(iType) + 1*sizeScanBuf
 				unsigned int gloId = t_idx.global[ 0 ] + index;
 				unsigned int groId = t_idx.tile[ 0 ] + tile_index;
 				unsigned int locId = t_idx.local[ 0 ];
-				unsigned int wgSize = kernel0_WgSize;
+				int wgSize = kernel0_WgSize;
 
 				tile_static iType lds[ SCAN_WAVESIZE*SCAN_KERNELWAVES*2 ];
 
 				wgSize *=2;
 
-				unsigned int input_offset = (groId*wgSize)+locId;
+				int input_offset = (groId*wgSize)+locId;
 				// if exclusive, load gloId=0 w/ identity, and all others shifted-1
 				if(input_offset < numElements)
 					lds[locId] = first[input_offset];
@@ -231,7 +232,7 @@ aProfiler.set(AsyncProfiler::memory, 2*numElements*sizeof(iType) + 1*sizeScanBuf
 //aProfiler.set(AsyncProfiler::device, control::SerialCpu);
 #endif
 
-    unsigned int workPerThread = static_cast< unsigned int >( sizeScanBuff / kernel1_WgSize );
+    int workPerThread = static_cast< int >( sizeScanBuff / kernel1_WgSize );
     workPerThread = workPerThread ? workPerThread : 1;
 
 
@@ -257,14 +258,14 @@ aProfiler.set(AsyncProfiler::memory, 4*sizeScanBuff*sizeof(oType));
         ] ( concurrency::tiled_index< kernel1_WgSize > t_idx ) restrict(amp)
   {
         unsigned int gloId = t_idx.global[ 0 ];
-        unsigned int locId = t_idx.local[ 0 ];
-        unsigned int wgSize = kernel1_WgSize;
-        unsigned int mapId  = gloId * workPerThread;
+        int locId = t_idx.local[ 0 ];
+        int wgSize = kernel1_WgSize;
+        int mapId  = gloId * workPerThread;
 
         tile_static iType lds[ SCAN_WAVESIZE*SCAN_KERNELWAVES ];
 
         // do offset of zero manually
-        unsigned int offset;
+        int offset;
         iType workSum;
         if (mapId < numWorkGroupsK0)
         {
@@ -374,10 +375,10 @@ aProfiler.set(AsyncProfiler::memory, 2*numElements*sizeof(oType) + 1*sizeScanBuf
 					kernel2_WgSize
 				] ( concurrency::tiled_index< kernel2_WgSize > t_idx ) restrict(amp)
 		  {
-				unsigned int gloId = t_idx.global[ 0 ] + index;
+				int gloId = t_idx.global[ 0 ] + index;
 				unsigned int groId = t_idx.tile[ 0 ] + tile_index;
-				unsigned int locId = t_idx.local[ 0 ];
-				unsigned int wgSize = kernel2_WgSize;
+				int locId = t_idx.local[ 0 ];
+				int wgSize = kernel2_WgSize;
 
 				 tile_static iType lds[ SCAN_WAVESIZE*SCAN_KERNELWAVES ];
 				// if exclusive, load gloId=0 w/ identity, and all others shifted-1
@@ -433,7 +434,7 @@ aProfiler.set(AsyncProfiler::memory, 2*numElements*sizeof(oType) + 1*sizeScanBuf
 				//  Computes a scan within a workgroup
 				sum = lds[ locId ];
 
-				for( unsigned int offset = 1; offset < wgSize; offset *= 2 )
+				for( int offset = 1; offset < wgSize; offset *= 2 )
 				{
 					t_idx.barrier.wait();
 					if (locId >= offset)
@@ -513,15 +514,10 @@ Serial_scan(
 
 /*!
 * \brief This overload is called strictly for non-device_vector iterators
-* \details This template function overload is used to seperate device_vector iterators from all other iterators
+* \details This template function overload is used to seperate std_vector iterators from all other iterators
 */
 template< typename InputIterator, typename OutputIterator, typename T, typename BinaryFunction >
-typename std::enable_if<
-    !(std::is_base_of<typename device_vector<typename
-           std::iterator_traits<InputIterator>::value_type>::iterator,InputIterator>::value &&
-      std::is_base_of<typename device_vector<typename
-           std::iterator_traits<OutputIterator>::value_type>::iterator,OutputIterator>::value),
-OutputIterator >::type
+OutputIterator 
 scan_pick_iterator(
     control &ctl,
     const InputIterator& first,
@@ -529,14 +525,16 @@ scan_pick_iterator(
     const OutputIterator& result,
     const T& init,
     const bool& inclusive,
-    const BinaryFunction& binary_op )
+    const BinaryFunction& binary_op,
+	std::random_access_iterator_tag,
+	std::random_access_iterator_tag )
 {
 
     typedef typename std::iterator_traits< InputIterator >::value_type iType;
     typedef typename std::iterator_traits< OutputIterator >::value_type oType;
     static_assert( std::is_convertible< iType, oType >::value, "Input and Output iterators are incompatible" );
 
-    unsigned int numElements = static_cast< unsigned int >( std::distance( first, last ) );
+    int numElements = static_cast< int >( std::distance( first, last ) );
     if( numElements < 1 )
         return result;
 
@@ -600,14 +598,11 @@ aProfiler.stopTrial();
 }
 
 /*!
-* \brief This overload is called strictly for non-device_vector iterators
+* \brief This overload is called strictly for device_vector iterators
 * \details This template function overload is used to seperate device_vector iterators from all other iterators
 */
 template< typename DVInputIterator, typename DVOutputIterator, typename T, typename BinaryFunction >
-typename std::enable_if<
-    (std::is_base_of<typename device_vector<typename std::iterator_traits<DVInputIterator>::value_type>::iterator,DVInputIterator>::value &&
-     std::is_base_of<typename device_vector<typename std::iterator_traits<DVOutputIterator>::value_type>::iterator,DVOutputIterator>::value),
-DVOutputIterator >::type
+DVOutputIterator
 scan_pick_iterator(
     control &ctl,
     const DVInputIterator& first,
@@ -615,7 +610,9 @@ scan_pick_iterator(
     const DVOutputIterator& result,
     const T& init,
     const bool& inclusive,
-    const BinaryFunction& binary_op )
+    const BinaryFunction& binary_op,
+	bolt::amp::device_vector_tag,
+	bolt::amp::device_vector_tag )
 {
 
     typedef typename std::iterator_traits< DVInputIterator >::value_type iType;
@@ -625,7 +622,7 @@ scan_pick_iterator(
     typedef typename std::vector<iType>::iterator InputIterator;
     typedef typename std::vector<oType>::iterator OutputIterator;
 
-    unsigned int numElements = static_cast< unsigned int >( std::distance( first, last ) );
+    int numElements = static_cast< int >( std::distance( first, last ) );
     if( numElements < 1 )
         return result;
 
@@ -670,6 +667,81 @@ scan_pick_iterator(
     return result + numElements;
 }
 
+/*!
+* \brief This overload is called strictly for device_vector iterators
+* \details This template function overload is used to seperate device_vector iterators from all other iterators
+*/
+template< typename DVInputIterator, typename DVOutputIterator, typename T, typename BinaryFunction >
+DVOutputIterator
+scan_pick_iterator(
+    control &ctl,
+    const DVInputIterator& first,
+    const DVInputIterator& last,
+    const DVOutputIterator& result,
+    const T& init,
+    const bool& inclusive,
+    const BinaryFunction& binary_op,
+	bolt::amp::fancy_iterator_tag,
+	std::random_access_iterator_tag )
+{
+
+    typedef typename std::iterator_traits< DVInputIterator >::value_type iType;
+    typedef typename std::iterator_traits< DVOutputIterator >::value_type oType;
+
+    typedef typename std::vector<iType>::iterator InputIterator;
+    typedef typename std::vector<oType>::iterator OutputIterator;
+
+    int numElements = static_cast< int >( std::distance( first, last ) );
+    if( numElements < 1 )
+        return result;
+
+    bolt::amp::control::e_RunMode runMode = ctl.getForceRunMode( );  // could be dynamic choice some day.
+	if (runMode == bolt::amp::control::Automatic)
+	{
+		runMode = ctl.getDefaultPathToRun();
+	}
+    if( runMode == bolt::amp::control::SerialCpu )
+    {
+       Serial_scan<iType, oType, BinaryFunction, T>(&(*first), &(*result), numElements, binary_op, inclusive, init);
+       return result + numElements;
+    }
+    else if( runMode == bolt::amp::control::MultiCoreCpu )
+    {
+
+#ifdef ENABLE_TBB
+           if(inclusive)
+               {
+                 return bolt::btbb::inclusive_scan(first, last, result, binary_op);
+               }
+               else
+               {
+                return bolt::btbb::exclusive_scan( first, last, result, init, binary_op);
+               }
+#else
+
+        throw std::exception( "The MultiCoreCpu version of Scan is not enabled to be built." );
+        return result;
+#endif
+    }
+    else{
+        //Now call the actual AMP algorithm
+        scan_enqueue( ctl, first, last, result, init, binary_op, inclusive );
+ 
+        PEEK_AT( result.getContainer().getBuffer())
+    }
+
+    return result + numElements;
+}
+
+template< typename InputIterator, typename OutputIterator, typename T, typename BinaryFunction >
+OutputIterator scan_pick_iterator( control &ctl, const InputIterator& first, const InputIterator& last,
+							       const OutputIterator& result, const T& init, const bool& inclusive, const BinaryFunction& binary_op,
+									std::random_access_iterator_tag, bolt::amp::fancy_iterator_tag )
+{
+     static_assert( std::is_same< OutputIterator, bolt::amp::fancy_iterator_tag >::value , "It is not possible to output to fancy iterators; they are not mutable" );
+}
+
+
 template< typename InputIterator, typename OutputIterator, typename T, typename BinaryFunction >
 OutputIterator scan_detect_random_access(
     control &ctl,
@@ -679,7 +751,8 @@ OutputIterator scan_detect_random_access(
     const T& init,
     const bool& inclusive,
     BinaryFunction binary_op,
-    std::input_iterator_tag )
+    std::input_iterator_tag,
+	std::input_iterator_tag )
 {
     //  TODO:  It should be possible to support non-random_access_iterator_tag iterators, if we copied the data
     //  to a temporary buffer.  Should we?
@@ -695,9 +768,12 @@ OutputIterator scan_detect_random_access(
     const T& init,
     const bool& inclusive,
     const BinaryFunction& binary_op,
-    std::random_access_iterator_tag )
+    std::random_access_iterator_tag,
+	std::random_access_iterator_tag )
 {
-    return detail::scan_pick_iterator( ctl, first, last, result, init, inclusive, binary_op );
+    return detail::scan_pick_iterator( ctl, first, last, result, init, inclusive, binary_op, 
+										typename std::iterator_traits< InputIterator >::iterator_category( ),
+										typename std::iterator_traits< OutputIterator >::iterator_category( ));
 };
 
 }   //namespace detail
@@ -715,7 +791,8 @@ OutputIterator inclusive_scan(
     iType init; memset(&init, 0, sizeof(iType) );
     return detail::scan_detect_random_access(
         control::getDefault( ), first, last, result, init, true, plus< iType >( ),
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        std::iterator_traits< InputIterator >::iterator_category( ),
+		std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator, typename BinaryFunction >
@@ -729,7 +806,8 @@ OutputIterator inclusive_scan(
     iType init; memset(&init, 0, sizeof(iType) );
     return detail::scan_detect_random_access(
         control::getDefault( ), first, last, result, init, true, binary_op,
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator >
@@ -743,7 +821,8 @@ OutputIterator inclusive_scan(
     iType init; memset(&init, 0, sizeof(iType) );
     return detail::scan_detect_random_access(
         ctl, first, last, result, init, true, plus< iType >( ),
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator, typename BinaryFunction >
@@ -758,7 +837,8 @@ OutputIterator inclusive_scan(
     iType init; memset(&init, 0, sizeof(iType) );
     return detail::scan_detect_random_access(
         ctl, first, last, result, init, true, binary_op,
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 //////////////////////////////////////////
@@ -774,7 +854,8 @@ OutputIterator exclusive_scan(
     iType init; memset(&init, 0, sizeof(iType) );
     return detail::scan_detect_random_access(
         control::getDefault( ), first, last, result, init, false, plus< iType >( ),
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator, typename T >
@@ -787,7 +868,8 @@ OutputIterator exclusive_scan(
     typedef std::iterator_traits<InputIterator>::value_type iType;
     return detail::scan_detect_random_access(
         control::getDefault( ), first, last, result, init, false, plus< iType >( ),
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator, typename T, typename BinaryFunction >
@@ -800,7 +882,8 @@ OutputIterator exclusive_scan(
 {
     return detail::scan_detect_random_access(
         control::getDefault( ), first, last, result, init, false, binary_op,
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator >
@@ -814,7 +897,8 @@ OutputIterator exclusive_scan(
     iType init; memset(&init, 0, sizeof(iType) );
     return detail::scan_detect_random_access(
         ctl, first, last, result, init, false, plus< iType >( ),
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator, typename T >
@@ -828,7 +912,8 @@ OutputIterator exclusive_scan(
     typedef std::iterator_traits<InputIterator>::value_type iType;
     return detail::scan_detect_random_access(
         ctl, first, last, result, init, false, plus< iType >( ),
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 template< typename InputIterator, typename OutputIterator, typename T, typename BinaryFunction >
@@ -842,7 +927,8 @@ OutputIterator exclusive_scan(
 {
     return detail::scan_detect_random_access(
         ctl, first, last, result, init, false, binary_op,
-        std::iterator_traits< InputIterator >::iterator_category( ) );
+        typename std::iterator_traits< InputIterator >::iterator_category( ),
+		typename std::iterator_traits< OutputIterator >::iterator_category( ) );
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

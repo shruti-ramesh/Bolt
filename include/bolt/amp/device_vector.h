@@ -61,24 +61,16 @@ namespace amp
 
 
     template <typename T>
-    class create_empty_array_view
+    class create_empty_array
     {
     public:
         // Create an AV on the CPU
-        static concurrency::array_view<T> getav() restrict(cpu)
+        static concurrency::array<T> getav() restrict(cpu)
         {
             static T type_default;
-            return concurrency::array_view<T>(1, &type_default);
-        }
-
-        // Create a null AV on Accelerator
-        static concurrency::array_view<T> getav() restrict(amp)
-        {
-            return concurrency::array_view<T>(0, nullptr);
+            return concurrency::array<T>(1);
         }
     };
-
-
 /*! \brief This defines the AMP version of a device_vector
 *   \ingroup AMP-Device
 *   \details A device_vector is an abstract data type that provides random access to a flat, sequential region of memory that is performant
@@ -123,13 +115,13 @@ public:
     class reference_base
     {
     public:
-        reference_base( Container& rhs, size_type index ): m_Container( rhs ), m_Index( index )
+        reference_base( Container& rhs, size_type index ): m_Container( rhs, false ), m_Index( index )
         {}
 
         //  Automatic type conversion operator to turn the reference object into a value_type
         operator value_type( ) const
         {
-            arrayview_type av( *m_Container.m_devMemory );
+            arrayview_type av( m_Container.m_devMemory );
             value_type &result = av[static_cast< int >( m_Index )];
 
             return result;
@@ -137,7 +129,7 @@ public:
 
         reference_base< Container >& operator=( const value_type& rhs )
         {
-            arrayview_type av( m_Container.m_devMemory ); //FIXTHIS
+            arrayview_type av( m_Container.m_devMemory );
             av[static_cast< int >( m_Index )] = rhs;
 
             return *this;
@@ -171,13 +163,13 @@ public:
     class const_reference_base
     {
     public:
-        const_reference_base( const Container& rhs, size_type index ): m_Container( rhs ), m_Index( index )
+        const_reference_base( const Container& rhs, size_type index ): m_Container( rhs, false ), m_Index( index )
         {}
 
         //  Automatic type conversion operator to turn the reference object into a value_type
         operator value_type( ) const
         {
-            arrayview_type av( *m_Container.m_devMemory );
+            arrayview_type av( m_Container.m_devMemory );
             value_type &result = av[static_cast< int >( m_Index )];
 
             return result;
@@ -185,7 +177,7 @@ public:
 
         const_reference_base< const Container >& operator=( const value_type& rhs )
         {
-            arrayview_type av( *m_Container.m_devMemory );
+            arrayview_type av( m_Container.m_devMemory );
             av[static_cast< int >( m_Index )] = rhs;
 
             return *this;
@@ -235,15 +227,17 @@ public:
     public:
 
         //  Basic constructor requires a reference to the container and a positional element
-        iterator_base( Container& rhs, size_type index ): m_Container( rhs ), m_Index( int(index) )
+        iterator_base( Container& rhs, size_type index ): m_Container( rhs, false ), m_Index( static_cast<int>(index) )
         {}
 
         //  This copy constructor allows an iterator to convert into a const_iterator, but not vica versa
         template< typename OtherContainer >
         iterator_base( const iterator_base< OtherContainer >& rhs ):
-            m_Container( rhs.m_Container ), m_Index( rhs.m_Index )
+            m_Container( rhs.m_Container, false ), m_Index( rhs.m_Index )
         {}
-
+        iterator_base( const iterator_base& rhs ):
+            m_Container( rhs.m_Container, false ), m_Index( rhs.m_Index )
+        {}
         //  This copy constructor allows an iterator to convert into a const_iterator, but not vica versa
         iterator_base< Container >& operator= ( const iterator_base< Container >& rhs )
         {
@@ -293,7 +287,7 @@ public:
 
         void advance( difference_type n )
         {
-            m_Index += static_cast<int>(n); //FIXTHIS
+            m_Index += static_cast<int>(n);
         }
 
         void increment( )
@@ -311,8 +305,7 @@ public:
         bool equal( const iterator_base< OtherContainer >& rhs ) const
         {
             bool sameIndex = rhs.m_Index == m_Index;
-            bool sameContainer = (&m_Container == &rhs.m_Container );
-
+            bool sameContainer = &m_Container.m_devMemory[m_Index] == &rhs.m_Container.m_devMemory[rhs.m_Index];
             return ( sameIndex && sameContainer );
         }
 
@@ -344,15 +337,18 @@ private:
     public:
 
         //  Basic constructor requires a reference to the container and a positional element
-        reverse_iterator_base( Container& lhs, int index ): m_Container( lhs ), m_Index( int(index-1) )
+        reverse_iterator_base( Container& lhs, int index ): m_Container( lhs, false ), m_Index( static_cast<int>(index-1) )
         {}
 
         //  This copy constructor allows an iterator to convert into a const_iterator, but not vica versa
         template< typename OtherContainer >
         reverse_iterator_base( const reverse_iterator_base< OtherContainer >& lhs ):
-            m_Container( lhs.m_Container ), m_Index( lhs.m_Index-1 )
+            m_Container( lhs.m_Container, false ), m_Index( lhs.m_Index )
         {}
 
+		reverse_iterator_base( const reverse_iterator_base& lhs ):
+            m_Container( lhs.m_Container, false ), m_Index( lhs.m_Index )
+        {}
         //  This copy constructor allows an iterator to convert into a const_iterator, but not vica versa
         reverse_iterator_base< Container >& operator= ( const reverse_iterator_base< Container >& lhs )
         {
@@ -403,7 +399,7 @@ private:
 
         void advance( difference_type n )
         {
-            m_Index += int(n); //FIXTHIS
+            m_Index += static_cast<int>(n);
         }
 
         void increment( )
@@ -422,8 +418,7 @@ private:
         bool equal( const reverse_iterator_base< OtherContainer >& lhs ) const
         {
             bool sameIndex = lhs.m_Index == m_Index;
-            bool sameContainer = (&m_Container == &lhs.m_Container );
-
+			bool sameContainer = &m_Container.m_devMemory[m_Index] == &lhs.m_Container.m_devMemory[lhs.m_Index];
             return ( sameIndex && sameContainer );
         }
 
@@ -466,8 +461,10 @@ private:
     *   confused with the size constructor below.
     */
     device_vector( control& ctl = control::getDefault( ) )
-        : m_Size( static_cast<int>(0) ), m_devMemory( create_empty_array_view<value_type>::getav() )
-    { }
+        : m_Size( static_cast<int>(0) ), m_devMemory( create_empty_array<value_type>::getav() )
+    { 
+		
+	}
 
     /*! \brief A constructor that creates a new device_vector with the specified number of elements,
     *   with a specified initial value.
@@ -479,13 +476,12 @@ private:
     */
     device_vector( size_type newSize, const value_type& initValue = value_type( ), bool init = true,
         control& ctl = control::getDefault( ) )
-        : m_Size( static_cast<int>(newSize) ), m_devMemory( create_empty_array_view<value_type>::getav() )
+        : m_Size( static_cast<int>(newSize) ), m_devMemory( create_empty_array<value_type>::getav() )
     {
         if( m_Size > 0 )
         {
-			concurrency::array<value_type> *tmp = new array_type( static_cast< int >( m_Size ), ctl.getAccelerator().default_view );
-            m_devMemory = arrayview_type( *tmp );
-			printf("***********************************\n");
+			concurrency::array<value_type> tmp = array_type( static_cast< int >( m_Size ), ctl.getAccelerator().default_view );
+            m_devMemory = arrayview_type( tmp );
             if( init )
             {
                 arrayview_type m_devMemoryAV( m_devMemory );
@@ -501,98 +497,151 @@ private:
     /*! \brief A constructor that creates a new device_vector using a range specified by the user.
     *   \param begin An iterator pointing at the beginning of the range.
 	*   \param newSize The number of elements of the new device_vector
-    *   \param discard Boolean value to whether the container data will be read; basically used as a hint to indicate
-    *   this is an output buffer
+    *   \param discard Boolean value to whether the container data will be discarded for read operation.
     *   \param ctl A Bolt control class used to perform copy operations; a default is used if not supplied by the user.
     *   \note Ignore the enable_if<> parameter; it prevents this constructor from being called with integral types.
     */
     template< typename InputIterator >
-    device_vector( const InputIterator begin, size_type newSize, bool discard = false, control& ctl = control::getDefault( ),
+    device_vector( const InputIterator begin, size_type newSize, bool discard = false, control& ctl = control::getDefault( ), 
                 typename std::enable_if< !std::is_integral< InputIterator >::value &&
                                     std::is_same< arrayview_type, container_type >::value>::type* = 0 )
-                                    : m_Size( static_cast<int>(newSize) ), m_devMemory( create_empty_array_view<value_type>::getav() )
+                                    : m_Size( static_cast<int>(newSize) ), m_devMemory( create_empty_array<value_type>::getav() )
     {
 		if( m_Size > 0 )
         {
 			concurrency::extent<1> ext( static_cast< int >( m_Size ) );
-			m_devMemory = container_type( ext, reinterpret_cast< value_type* >(&begin[ 0 ]) );
+			concurrency::array_view<value_type> tmp = arrayview_type( ext, reinterpret_cast< value_type* >(&begin[ 0 ])  );
+			m_devMemory = tmp;
 		}
-
+		if(discard)
+			m_devMemory.discard_data();
     };
 
-    /*! \brief A constructor that creates a new device_vector using a range specified by the user.
-    *   \param cont An object that has both .data() and .size() members
-    */
-    
-    template< typename T>
-    device_vector( device_vector<T, concurrency::array > & cont ): m_Size( cont.size( ) ),
-																   m_devMemory( create_empty_array_view<value_type>::getav() )
-    {
-		if( m_Size > 0 )
-        {
-          
-			concurrency::extent<1> ext( static_cast< int >( m_Size ) );
-			m_devMemory = new container_type( cont.m_devMemory.section(ext) );
-		}
-    };
 
-	
-    /*! \brief A constructor that creates a new device_vector using concurrency::array.
-    *   \param cont An concurrency::array object.
+	/*! \brief A constructor that creates a new device_vector using a range specified by the user.
+    *   \param begin An iterator pointing at the beginning of the range.
 	*   \param newSize The number of elements of the new device_vector
+    *   \param discard Boolean value to whether the container data will be discarded for read operation.
+    *   \param ctl A Bolt control class used to perform copy operations; a default is used if not supplied by the user.
+    *   \note Ignore the enable_if<> parameter; it prevents this constructor from being called with integral types.
     */
-	template< typename T>
-    device_vector( concurrency::array<T> &cont): m_devMemory( create_empty_array_view<value_type>::getav() )
+    template< typename InputIterator >
+    device_vector( const InputIterator begin, size_type newSize, bool discard = false, control& ctl = control::getDefault( ), 
+                typename std::enable_if< !std::is_integral< InputIterator >::value &&
+                                    std::is_same< array_type, container_type >::value>::type* = 0 )
+                                    : m_Size( static_cast<int>(newSize) ), m_devMemory( create_empty_array<value_type>::getav() )
+    {
+		if( m_Size > 0 )
+        {
+			concurrency::extent<1> ext( static_cast< int >( m_Size ) );
+			concurrency::array<value_type> tmp = array_type( ext, reinterpret_cast< value_type* >(&begin[ 0 ])  );
+			m_devMemory = arrayview_type( tmp );
+		}
+    };
+
+
+    /*! \brief A constructor that creates a new device_vector from device_vector specified by user.
+    *   \param cont An device_vector object that has both .data() and .size() members
+	*   \param copy Boolean value to decide whether new device_vector will be shallow copy or deep copy
+	*   \param ctl A Bolt control class used to perform copy operations; a default is used if not supplied by the user.
+    */
+	template< typename T >
+	device_vector( const device_vector<T, CONT> &cont, bool copy = true,control& ctl = control::getDefault( ) ): m_Size( cont.size( ) ), m_devMemory( cont.m_devMemory)
+    {
+		if(!copy)
+			return;
+		if( m_Size > 0 )
+        {
+			concurrency::array<value_type> tmp = array_type( m_devMemory );
+            m_devMemory = arrayview_type( tmp );
+		}
+    };
+	
+    /*! \brief A constructor that creates a new device_vector using a pre-initialized array supplied by the user.
+    *   \param cont An concurrency::array object.
+    */
+    device_vector( arrayview_type &cont): m_devMemory( create_empty_array<value_type>::getav() )
     {
 		m_Size =  cont.get_extent().size();
 		if( m_Size > 0 )
         {
-			m_devMemory = container_type( cont );
+			concurrency::array_view<value_type> tmp = arrayview_type(cont);
+			m_devMemory = tmp;
+		}
+    };
+
+
+   /*! \brief A constructor that creates a new device_vector using a pre-initialized array_view supplied by the user.
+    *   \param cont An concurrency::array_view object.
+    */
+    device_vector( array_type &cont): m_devMemory( create_empty_array<value_type>::getav() )
+    {
+		m_Size =  cont.get_extent().size();
+		if( m_Size > 0 )
+        {
+			concurrency::array_view<value_type> tmp = arrayview_type(cont);
+			m_devMemory = tmp;
 		}
 		
     };
 
-
-
     /*! \brief A constructor that creates a new device_vector using a range specified by the user.
     *   \param begin An iterator pointing at the beginning of the range.
     *   \param end An iterator pointing at the end of the range.
-    *   \param ctl A Bolt control class for copy operations; a default is used if not supplied by the user.
-    *   \note Ignore the enable_if<> parameter; it prevents this constructor from being called with integral types.
+	*   \param discard Boolean value to whether the container data will be discarded for read operation.
+    *   \param ctl A Bolt control class used to perform copy operations; a default is used if not supplied by the user.
+    *   \note concurrency::array_view specialization Ignore the enable_if<> parameter; it prevents this constructor from being called with integral types.
     */
     template< typename InputIterator >
     device_vector( const InputIterator begin, const InputIterator end, bool discard = false, control& ctl = control::getDefault( ),
-        typename std::enable_if< !std::is_integral< InputIterator >::value &&
-                                    std::is_same< arrayview_type, container_type >::value>::type* = 0 )
-                                    : m_devMemory( create_empty_array_view<value_type>::getav() )
+        typename std::enable_if< std::is_same< arrayview_type, container_type >::value &&
+                                   !std::is_integral< InputIterator >::value>::type* = 0 )
+                                    : m_devMemory( create_empty_array<value_type>::getav() )
     {
         m_Size =  static_cast<int>(std::distance( begin, end ));
 
 		if( m_Size > 0 )
         {
 			concurrency::extent<1> ext( static_cast< int >( m_Size ) );
-			m_devMemory = container_type( ext, reinterpret_cast< value_type* >( &begin[0] ) );
-
+			concurrency::array_view<value_type> tmp = arrayview_type( ext, reinterpret_cast< value_type* >(&begin[ 0 ])  );
+	        m_devMemory = tmp;
 		}
+		if(discard)
+			m_devMemory.discard_data();
 
     };
 
-    /*! \brief A constructor that creates a new device_vector using a pre-initialized buffer supplied by the user.
-    *   \param rhs A pre-existing ::cl::Buffer supplied by the user.
-    *   \param ctl A Bolt control class for copy operations; a default is used if not supplied by the user.
+
+	/*! \brief A constructor that creates a new device_vector using a range specified by the user.
+    *   \param begin An iterator pointing at the beginning of the range.
+    *   \param end An iterator pointing at the end of the range.
+	*   \param discard Boolean value to whether the container data will be discarded for read operation.
+    *   \param ctl A Bolt control class used to perform copy operations; a default is used if not supplied by the user.
+    *   \note concurrency::array specializationIgnore the enable_if<> parameter; it prevents this constructor from being called with integral types.
     */
-    device_vector( container_type& rhs, control& ctl = control::getDefault( ) ): m_devMemory( rhs )
+	template< typename InputIterator >
+    device_vector( const InputIterator begin, const InputIterator end, bool discard = false, control& ctl = control::getDefault( ),
+        typename std::enable_if< std::is_same< array_type, container_type >::value &&
+									!std::is_integral< InputIterator >::value>::type* = 0 )
+                                    : m_devMemory( create_empty_array<value_type>::getav() )
     {
-        m_Size = capacity( );
+        m_Size =  static_cast<int>(std::distance( begin, end ));
+
+		if( m_Size > 0 )
+        {
+			concurrency::extent<1> ext( static_cast< int >( m_Size ) );
+			concurrency::array<value_type> tmp = array_type( ext, reinterpret_cast< value_type* >(&begin[ 0 ])  );
+			m_devMemory = arrayview_type( tmp );
+		}
     };
 
-    //destructor for device_vector
+
+	    //destructor for device_vector
     ~device_vector()
     {
     }
 
     //  Member functions
-
 
     /*! \brief A get accessor function to return the encapsulated device buffer for const objects.
     *   This member function allows access to the Buffer object, which can be retrieved through a reference or an iterator.
@@ -658,6 +707,7 @@ private:
     *   \warning The ::cl::CommandQueue is not a STD reserve( ) parameter
     */
 
+
     void resize( size_type reqSize, const value_type& val = value_type( ) )
     {
         size_type cap = capacity( );
@@ -666,8 +716,8 @@ private:
             return;
 
         //TODO - Add if statement for max size allowed in array class
-        array_type* l_tmpArray = new array_type((int)reqSize);
-        arrayview_type l_tmpBuffer = arrayview_type(*l_tmpArray);
+        array_type l_tmpArray = array_type(reqSize);
+        arrayview_type l_tmpBuffer = arrayview_type(l_tmpArray);
         if( m_Size > 0 )
         {
             //1622 Arrays are logically considered to be value types in that when an array is copied to another array,
@@ -678,7 +728,7 @@ private:
             {
                 m_devMemory.copy_to(l_tmpBuffer.section( 0, m_devMemory.get_extent().size() ) );
                 arrayview_type l_tmpBufferSectionAV =
-                    l_tmpBuffer.section((int)m_Size, (int)(reqSize - m_Size));
+                l_tmpBuffer.section(m_Size, (reqSize - m_Size));
                 concurrency::parallel_for_each(l_tmpBufferSectionAV.extent, [=](Concurrency::index<1> idx) restrict(amp)
                 {
                     l_tmpBufferSectionAV[idx] = val;
@@ -686,9 +736,8 @@ private:
             }
             else
             {
-                arrayview_type l_devMemoryAV = m_devMemory.section(0, (int)reqSize);
-                arrayview_type l_tmpBufferAV = l_tmpBuffer.section(0, (int)reqSize);
-                l_devMemoryAV.copy_to(l_tmpBufferAV);
+                arrayview_type l_devMemoryAV = m_devMemory.section(0, reqSize);
+                l_devMemoryAV.copy_to(l_tmpBuffer);
             }
         }
         else
@@ -699,11 +748,8 @@ private:
                 l_tmpBufferAV[idx] = val;
             });
         }
-
         //  Remember the new size
         m_Size = reqSize;
-        //  delete the old buffer
-        //delete(m_devMemory);
         m_devMemory = l_tmpBuffer;
     }
 
@@ -716,21 +762,7 @@ private:
         return m_Size;
     }
 
-    /*! \brief Return the maximum number of elements possible to allocate on the associated device.
-    *   \return The maximum amount of memory possible to allocate, counted in elements.
-    */
-    /*size_type max_size( void ) const
-    {
-        cl_int l_Error = CL_SUCCESS;
-
-        ::cl::Device l_Device = m_commQueue.getInfo< CL_QUEUE_DEVICE >( &l_Error );
-        V_OPENCL( l_Error, "device_vector failed to query for the device of the command queue" );
-
-        size_type l_MaxSize  = l_Device.getInfo< CL_DEVICE_MAX_MEM_ALLOC_SIZE >( &l_Error );
-        V_OPENCL( l_Error, "device_vector failed to query device for the maximum memory size" );
-
-        return l_MaxSize / sizeof( value_type );
-    }*/
+  
 
     /*! \brief Request a change in the capacity of the device_vector.
     *   If reserve completes successfully,
@@ -743,28 +775,24 @@ private:
     *   \warning The ::cl::CommandQueue is not a STD reserve( ) parameter
     *   \TODO what if reqSize < the size of the original buffer
     */
+
     void reserve( size_type reqSize )
     {
-        if( reqSize <= capacity( ) )
-            return;
+       if( reqSize <= capacity( ) )
+           return;
 
-        if( capacity() == 0 )
+		concurrency::array<value_type> tmp =  array_type( static_cast< int >( reqSize ) );
+		arrayview_type l_tmpBuffer = arrayview_type( tmp );
+		if( m_Size > 0 )
         {
-            concurrency::extent<1> reqExt( static_cast< int >( reqSize ) );
+			if( capacity() != 0 )
+			{
+				arrayview_type l_tmpBuffer = arrayview_type( tmp );
+				m_devMemory.copy_to(l_tmpBuffer.section(0, m_devMemory.get_extent().size()));
+			}
+		}
+		m_devMemory = l_tmpBuffer;
 
-            concurrency::array<value_type> *tmp = new array_type( static_cast< int >( reqSize ) );
-            m_devMemory = arrayview_type( *tmp );
-        }
-        else
-        {
-            concurrency::extent<1> reqExt( static_cast< int >( reqSize ) );
-
-            concurrency::array<value_type> *tmp = new array_type( static_cast< int >( reqSize ) );
-            arrayview_type l_tmpBuffer = arrayview_type( *tmp );
-
-            m_devMemory.copy_to(l_tmpBuffer.section(0,m_devMemory.get_extent().size()));
-            m_devMemory = l_tmpBuffer;
-        }
     }
 
     /*! \brief Return the maximum possible number of elements without reallocation.
@@ -788,8 +816,8 @@ private:
         if( m_Size == capacity( ) )
              return;
 
-        array_type* l_tmpArray = new array_type( static_cast< int >( size( ) ) );
-        arrayview_type l_tmpBuffer = arrayview_type(*l_tmpArray);
+        array_type l_tmpArray = array_type( static_cast< int >( size( ) ) );
+        arrayview_type l_tmpBuffer = arrayview_type(l_tmpArray);
         arrayview_type l_devMemoryAV = m_devMemory.section( 0,(int)size() );
         arrayview_type l_tmpBufferAV = l_tmpBuffer.section( 0,(int)size() );
 
@@ -930,7 +958,7 @@ private:
     /*! \brief Retrieves the value stored at index 0.
     *   \note This returns a proxy object, to control when device memory gets mapped.
     */
-    value_type& front( void ) //FIXTHIS: implement dereference
+    value_type& front( void )
     {
 		return (*begin());
     }
@@ -938,7 +966,7 @@ private:
     /*! \brief Retrieves the value stored at index 0.
     *   \return Returns a const_reference, which is not a proxy object.
     */
-    const value_type& front( void ) const //FIXTHIS: implement dereference
+    const value_type& front( void ) const
     {
         return (*begin());
     }
@@ -946,7 +974,7 @@ private:
     /*! \brief Retrieves the value stored at index size( ) - 1.
     *   \note This returns a proxy object, to control when device memory gets mapped.
     */
-    value_type& back( void ) //FIXTHIS: implement dereference
+    value_type& back( void )
     {
 		return (*(end() - 1));
     }
@@ -954,7 +982,7 @@ private:
     /*! \brief Retrieves the value stored at index size( ) - 1.
     *   \return Returns a const_reference, which is not a proxy object.
     */
-    const value_type& back( void ) const //FIXTHIS: implement dereference
+    const value_type& back( void ) const
     {
 		return ( *(end() - 1) );
     }
@@ -991,7 +1019,7 @@ private:
     */
     void clear( void )
     {   
-        m_devMemory = create_empty_array_view<value_type>::getav();
+        m_devMemory = create_empty_array<value_type>::getav();
         m_Size = 0;
     }
 
@@ -1048,7 +1076,7 @@ private:
 
         size_type sizeTmp = m_Size;
         m_Size = vec.m_Size;
-        vec.m_Size = int(sizeTmp);
+        vec.m_Size = static_cast<int>(sizeTmp);
     }
 
     /*! \brief Removes an element.
@@ -1093,13 +1121,13 @@ private:
         iterator l_End = end( );
         size_type sizeMap = l_End.m_Index - first.m_Index;
 
-        arrayview_type av( m_devMemory ); //FIXTHIS
+        arrayview_type av( m_devMemory );
         naked_pointer ptrBuff = av.data();
         ptrBuff = ptrBuff + first.m_Index;
         size_type sizeErase = last.m_Index - first.m_Index;
         ::memmove( ptrBuff, ptrBuff + sizeErase, (sizeMap - sizeErase)*sizeof( value_type ) );
 
-        m_Size -= int(sizeErase); //FIXTHIS
+        m_Size -= static_cast<int>(sizeErase);
 
         size_type newIndex = (m_Size < last.m_Index) ? m_Size : last.m_Index;
         return iterator( *this, newIndex );
@@ -1133,7 +1161,7 @@ private:
 
         size_type sizeMap = (m_Size - index.m_Index) + 1;
 
-        arrayview_type av( m_devMemory ); //FIXTHIS
+        arrayview_type av( m_devMemory );
         naked_pointer ptrBuff = av.data();
         ptrBuff = ptrBuff + index.m_Index;
 
@@ -1198,7 +1226,7 @@ private:
         }
         size_type sizeMap = (m_Size - index.m_Index) + n;
 
-        arrayview_type av( m_devMemory ); //FIXTHIS
+        arrayview_type av( m_devMemory );
         naked_pointer ptrBuff = av.data() + index.m_Index;
 
         //  Shuffle the old values n element down.
@@ -1210,7 +1238,7 @@ private:
         std::copy( begin, end, ptrBuff );
 #endif
 
-        m_Size += int(n);
+        m_Size += static_cast<int>(n);
     }
 
     /*! \brief Assigns newSize copies of element value.
@@ -1249,7 +1277,7 @@ private:
         {
             reserve( l_Count );
         }
-        m_Size = int(l_Count);
+        m_Size = static_cast<int>(l_Count);
 
         arrayview_type m_devMemoryAV( m_devMemory );
         naked_pointer ptrBuff = m_devMemoryAV.data();
@@ -1269,14 +1297,13 @@ private:
     void synchronize( device_vector< T, concurrency::array >& rhs )
     {
     };
-
     void synchronize( device_vector< T, concurrency::array_view >& rhs )
     {
         rhs.m_devMemory.synchronize( );
     };
 
     int m_Size;
-    container_type m_devMemory;
+    concurrency::array_view<T, 1> m_devMemory;
 };
 
 }
