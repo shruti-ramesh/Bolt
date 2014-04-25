@@ -36,7 +36,6 @@ namespace bolt {
 
         /*! \addtogroup merging
         *   \ingroup algorithms
-        *
         */
 
         /*! \addtogroup CL-merge
