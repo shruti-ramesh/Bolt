@@ -25,9 +25,11 @@
 #endif
 
 #define BOLT_CL_STABLESORT_BY_KEY_CPU_THRESHOLD 256
+#include "bolt/cl/sort_by_key.h"
 
 namespace bolt {
 namespace cl {
+
 namespace detail
 {
     template< typename DVKeys, typename DVValues, typename StrictWeakOrdering>

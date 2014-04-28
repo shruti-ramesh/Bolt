@@ -28,7 +28,12 @@
 * 
 *  Besides this following publications were referred: 
 *  1. "Parallel Scan For Stream Architectures"  
-*     Technical Report CS2009-14Department of Computer Science, University of Virginia. *     Duane Merrill and Andrew Grimshaw*    https://sites.google.com/site/duanemerrill/ScanTR2.pdf*  2. "Revisiting Sorting for GPGPU Stream Architectures" *     Duane Merrill and Andrew Grimshaw*    https://sites.google.com/site/duanemerrill/RadixSortTR.pdf
+*     Technical Report CS2009-14Department of Computer Science, University of Virginia. 
+*     Duane Merrill and Andrew Grimshaw
+*    https://sites.google.com/site/duanemerrill/ScanTR2.pdf
+*  2. "Revisiting Sorting for GPGPU Stream Architectures" 
+*     Duane Merrill and Andrew Grimshaw
+*    https://sites.google.com/site/duanemerrill/RadixSortTR.pdf
 *  3. The SHOC Benchmark Suite 
 *     https://github.com/vetter/shoc
 *
@@ -44,6 +49,8 @@
 #include "bolt/btbb/sort_by_key.h"
 #endif
 
+#include "bolt/cl/stablesort_by_key.h"
+
 #define BITONIC_SORT_WGSIZE 64
 #define DEBUG 1
 namespace bolt {
@@ -51,6 +58,40 @@ namespace cl {
 
 namespace detail {
  
+
+	 template<typename DVKeys, typename DVValues, typename StrictWeakOrdering>
+    typename std::enable_if< std::is_same< typename std::iterator_traits<DVKeys >::value_type,
+                                           int
+                                         >::value
+                           >::type  /*If enabled then this typename will be evaluated to void*/
+    sort_by_key_enqueue( control &ctl,
+                         DVKeys keys_first, DVKeys keys_last,
+                         DVValues values_first,
+                         StrictWeakOrdering comp, const std::string& cl_code);
+
+	 template<typename DVKeys, typename DVValues, typename StrictWeakOrdering>
+    typename std::enable_if< std::is_same< typename std::iterator_traits<DVKeys >::value_type,
+                                           unsigned int
+                                         >::value
+                           >::type  /*If enabled then this typename will be evaluated to void*/
+    sort_by_key_enqueue( control &ctl,
+                         DVKeys keys_first, DVKeys keys_last,
+                         DVValues values_first,
+                         StrictWeakOrdering comp, const std::string& cl_code);
+
+  template< typename DVKeys, typename DVValues, typename StrictWeakOrdering>
+    typename std::enable_if<
+        !( std::is_same< typename std::iterator_traits<DVKeys >::value_type, unsigned int >::value ||
+           std::is_same< typename std::iterator_traits<DVKeys >::value_type, int >::value 
+         )
+                           >::type
+    sort_by_key_enqueue(control &ctl, const DVKeys& keys_first,
+                        const DVKeys& keys_last, const DVValues& values_first,
+                        const StrictWeakOrdering& comp, const std::string& cl_code);
+
+	
+
+
 enum sortByKeyTypes {sort_by_key_keyValueType, sort_by_key_keyIterType,
                      sort_by_key_valueValueType, sort_by_key_valueIterType,
                      sort_by_key_StrictWeakOrdering, sort_by_key_end };
@@ -205,8 +246,7 @@ enum sortByKeyTypes {sort_by_key_keyValueType, sort_by_key_keyIterType,
         }
     }
 
-
-    template< typename DVKeys, typename DVValues, typename StrictWeakOrdering>
+ template< typename DVKeys, typename DVValues, typename StrictWeakOrdering>
     typename std::enable_if<
         !( std::is_same< typename std::iterator_traits<DVKeys >::value_type, unsigned int >::value ||
            std::is_same< typename std::iterator_traits<DVKeys >::value_type, int >::value 
