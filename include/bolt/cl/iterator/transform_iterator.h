@@ -240,7 +240,7 @@ namespace cl
 
                     value_type operator*( ) const \n
                     { \n
-                        return m_f(m_Ptr[ m_StartIndex + threadID ]); \n
+                        return m_f(m_Ptr[ m_StartIndex ]); \n
                     } \n
 
                     size_type m_StartIndex; \n

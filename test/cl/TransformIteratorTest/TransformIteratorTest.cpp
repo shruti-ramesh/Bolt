@@ -610,18 +610,18 @@ TEST( TransformIterator, UnaryTransformUDDRoutine)
             cmpArrays(svOutVec, stlOut, length);
             cmpArrays(dvOutVec, stlOut, length);
         }
-        {/*Test case when the input is a counting iterator */
-            bolt::cl::transform(count_itr_begin, count_itr_end, svOutVec.begin(), sqUDD);
-            bolt::cl::transform(count_itr_begin, count_itr_end, dvOutVec.begin(), sqUDD);
-            /*Compute expected results*/
-            std::vector<int> count_vector(length);
-            for (int index=0;index<length;index++)
-                count_vector[index] = index;
-            std::transform(count_vector.begin(), count_vector.end(), stlOut.begin(), sqUDD);
-            /*Check the results*/
-            cmpArrays(svOutVec, stlOut, length);
-            cmpArrays(dvOutVec, stlOut, length);
-        }
+        //{/*Test case when the input is a counting iterator */
+        //    bolt::cl::transform(count_itr_begin, count_itr_end, svOutVec.begin(), sqUDD);
+        //    bolt::cl::transform(count_itr_begin, count_itr_end, dvOutVec.begin(), sqUDD);
+        //    /*Compute expected results*/
+        //    std::vector<int> count_vector(length);
+        //    for (int index=0;index<length;index++)
+        //        count_vector[index] = index;
+        //    std::transform(count_vector.begin(), count_vector.end(), stlOut.begin(), sqUDD);
+        //    /*Check the results*/
+        //    cmpArrays(svOutVec, stlOut, length);
+        //    cmpArrays(dvOutVec, stlOut, length);
+        //}
         global_id = 0; // Reset the global id counter
     }
 }
