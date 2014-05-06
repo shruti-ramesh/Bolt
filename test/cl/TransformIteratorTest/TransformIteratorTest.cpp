@@ -1742,6 +1742,97 @@ TEST( TransformIterator, CountRoutine)
     }
 }
 
+#if 0
+TEST( TransformIterator, CountUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+
+
+
+		squareUDD_resultUDD sqUDD;
+        gen_input_udd genUDD;
+		int n = (int) 1 + rand()%10;
+
+        typedef std::vector< UDD >::const_iterator                                                   sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
+       
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+
+        UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+		
+		
+        UDD val;
+		val.i = (int) rand();
+		val.f = (float) rand();
+
+        {/*Test case when inputs are trf Iterators*/
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result = (int) bolt::cl::count(sv_trf_begin1, sv_trf_end1, val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result = (int) bolt::cl::count(dv_trf_begin1, dv_trf_end1, val);
+            /*Compute expected results*/
+            std::iterator_traits<std::vector<UDD>::iterator>::difference_type expected_result = std::count(sv_trf_begin1, sv_trf_end1, val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result = (int) bolt::cl::count(svIn1Vec.begin(), svIn1Vec.end(), val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result = (int) bolt::cl::count(dvIn1Vec.begin(), dvIn1Vec.end(), val);
+            /*Compute expected results*/
+            std::iterator_traits<std::vector<UDD>::iterator>::difference_type expected_result = std::count(svIn1Vec.begin(), svIn1Vec.end(), val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is constant iterator and the second is a counting iterator */
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result = (int) bolt::cl::count(const_itr_begin, const_itr_end, val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result = (int) bolt::cl::count(const_itr_begin, const_itr_end, val);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,1);
+            std::iterator_traits<std::vector<UDD>::iterator>::difference_type expected_result = std::count(const_vector.begin(), const_vector.end(), val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        //{/*Test case when the first input is constant iterator and the second is a counting iterator */
+        //    bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result = (int) bolt::cl::count(count_itr_begin, count_itr_end, val);
+        //    bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result = (int) bolt::cl::count(count_itr_begin, count_itr_end, val);
+        //    /*Compute expected results*/
+        //    std::vector<int> count_vector(length);
+        //    for (int index=0;index<length;index++)
+        //        count_vector[index] = index;
+        //    std::iterator_traits<std::vector<int>::iterator>::difference_type expected_result = std::count(count_vector.begin(), count_vector.end(), val);
+        //    /*Check the results*/
+        //    EXPECT_EQ( expected_result, sv_result );
+        //    EXPECT_EQ( expected_result, dv_result );
+        //}
+        global_id = 0; // Reset the global id counter
+    }
+}
+#endif
+
 TEST( TransformIterator, InnerProductRoutine)
 {
     {
