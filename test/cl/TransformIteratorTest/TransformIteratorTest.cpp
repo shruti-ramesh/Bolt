@@ -99,11 +99,6 @@ struct UDD
     int i;
     float f;
   
-	UDD operator = (const UDD& x)  const 
-    { 
-            return (x);
-    }
-
     bool operator == (const UDD& other) const {
         return ((i == other.i) && (f == other.f));
     }
