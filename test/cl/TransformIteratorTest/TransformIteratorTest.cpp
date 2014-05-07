@@ -14,11 +14,11 @@
 *   limitations under the License.
 
 ***************************************************************************/
+#pragma warning(disable:4244)
 
 #include "common/stdafx.h"
 #include <vector>
 #include <array>
-
 //#include "bolt/cl/iterator/counting_iterator.h"
 #include "bolt/cl/iterator/transform_iterator.h"
 #include "bolt/cl/copy.h"
@@ -105,7 +105,31 @@ struct UDD
     bool operator == (const UDD& other) const {
         return ((i == other.i) && (f == other.f));
     }
-    
+
+	UDD operator ++ () 
+    {
+      UDD _result;
+      _result.i = i + 1;
+      _result.f = f + 1.f;
+      return _result;
+    }
+
+	UDD operator + (const UDD &rhs) const
+    {
+      UDD _result;
+      _result.i = i + rhs.i;
+      _result.f = f + rhs.f;
+      return _result;
+    }
+
+	UDD operator-() const
+    {
+        UDD r;
+        r.i = -i;
+        r.f = -f;
+        return r;
+    }
+
     UDD()
         : i(0), f(0) { }
     UDD(int _in)
@@ -113,8 +137,8 @@ struct UDD
 };
 );
 
-BOLT_FUNCTOR(squareUDD,
-    struct squareUDD
+BOLT_FUNCTOR(squareUDD_result_float,
+    struct squareUDD_result_float
     {
         float operator() (const UDD& x)  const 
         { 
@@ -122,6 +146,89 @@ BOLT_FUNCTOR(squareUDD,
         }
         typedef float result_type;
     };
+);
+
+BOLT_FUNCTOR(squareUDD_resultUDD,
+    struct squareUDD_resultUDD
+    {
+        UDD operator() (const UDD& x)  const 
+        { 
+            UDD tmp;
+            tmp.i = x.i * x.i;
+            tmp.i = x.f * x.f;
+            return tmp;
+        }
+        typedef UDD result_type;
+    };
+);
+
+BOLT_FUNCTOR(add3UDD_resultUDD,
+    struct add3UDD_resultUDD
+    {
+        UDD operator() (const UDD& x)  const 
+        { 
+            UDD tmp;
+            tmp.i = x.i + 3;
+            tmp.i = x.f + 3.f;
+            return tmp;
+        }
+        typedef UDD result_type;
+    };
+);
+
+BOLT_FUNCTOR(cubeUDD,
+    struct cubeUDD
+    {
+        float operator() (const UDD& x)  const 
+        { 
+            return ((float)x.i + x.f + 3.0f);
+        }
+        typedef float result_type;
+    };
+);
+
+
+BOLT_FUNCTOR(cubeUDD_resultUDD,
+    struct cubeUDD_resultUDD
+    {
+        UDD operator() (const UDD& x)  const 
+        { 
+            UDD tmp;
+            tmp.i = x.i * x.i * x.i;
+            tmp.i = x.f * x.f * x.f;
+            return tmp;
+        }
+        typedef UDD result_type;
+    };
+);
+
+
+BOLT_FUNCTOR( UDDplus,
+struct UDDplus
+{
+   UDD operator() (const UDD &lhs, const UDD &rhs) const
+   {
+     UDD _result;
+     _result.i = lhs.i + rhs.i;
+     _result.f = lhs.f + rhs.f;
+     return _result;
+   }
+
+};
+);
+
+BOLT_FUNCTOR( UDDmul,
+struct UDDmul
+{
+   UDD operator() (const UDD &lhs, const UDD &rhs) const
+   {
+     UDD _result;
+     _result.i = lhs.i * rhs.i;
+     _result.f = lhs.f * rhs.f;
+     return _result;
+   }
+
+};
 );
 
 /*Create Device Vector Iterators*/
@@ -133,6 +240,21 @@ BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, add
 BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, add_4, int);
 BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, add_0, int);
 
+BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, squareUDD_result_float, UDD);
+BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, squareUDD_resultUDD, UDD);
+BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, cubeUDD_resultUDD, UDD);
+BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, cubeUDD, UDD);
+BOLT_TEMPLATE_REGISTER_NEW_TRANSFORM_ITERATOR( bolt::cl::transform_iterator, add3UDD_resultUDD, UDD);
+
+BOLT_TEMPLATE_REGISTER_NEW_TYPE(bolt::cl::negate, float, UDD );
+BOLT_TEMPLATE_REGISTER_NEW_TYPE( bolt::cl::constant_iterator, int, UDD );
+BOLT_TEMPLATE_REGISTER_NEW_TYPE( bolt::cl::counting_iterator, int, UDD );
+BOLT_TEMPLATE_REGISTER_NEW_TYPE(bolt::cl::plus, float, UDD );
+BOLT_TEMPLATE_REGISTER_NEW_TYPE(bolt::cl::equal_to, float, UDD );
+
+BOLT_TEMPLATE_REGISTER_NEW_TYPE( bolt::cl::detail::CountIfEqual, int, UDD );
+
+
 BOLT_FUNCTOR(gen_input_udd,
     struct gen_input_udd
     {
@@ -142,6 +264,21 @@ BOLT_FUNCTOR(gen_input_udd,
             UDD temp;
             temp.i = i;
             temp.f = (float)i;
+            return temp; 
+        }
+        typedef int result_type;
+    };
+);
+
+BOLT_FUNCTOR(gen_input_udd2,
+    struct gen_input_udd2
+    {
+        UDD operator() ()  const 
+       { 
+            int i=get_global_id(0);
+            UDD temp;
+            temp.i = i*2;
+            temp.f = (float)i*2;
             return temp; 
         }
         typedef int result_type;
@@ -276,7 +413,6 @@ void Serial_scatter (InputIterator1 first1,
                 *(result+*(map + iter)) = *(first1 + iter);
 }
 
-
 template<typename InputIterator1,
          typename InputIterator2,
 		 typename InputIterator3,
@@ -390,13 +526,13 @@ TEST( TransformIterator, UDDTest)
         bolt::BCKND::device_vector< UDD > dvInVec( length );
         bolt::BCKND::device_vector< UDD > dvOutVec( length );
 
-        squareUDD sqUDD;
+        squareUDD_result_float sqUDD;
         gen_input_udd genUDD;
         /*Type defintions*/
         typedef std::vector< UDD >::const_iterator                                                          sv_itr;
         typedef bolt::BCKND::device_vector< UDD >::iterator                                                 dv_itr;
-        typedef bolt::BCKND::transform_iterator< squareUDD, std::vector< UDD >::const_iterator>             sv_trf_itr;
-        typedef bolt::BCKND::transform_iterator< squareUDD, bolt::BCKND::device_vector< UDD >::iterator>    dv_trf_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_result_float, std::vector< UDD >::const_iterator>             sv_trf_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_result_float, bolt::BCKND::device_vector< UDD >::iterator>    dv_trf_itr;
     
         /*Create Iterators*/
         sv_trf_itr sv_trf_begin (svInVec.begin(), sqUDD), sv_trf_end (svInVec.begin(), sqUDD);
@@ -506,6 +642,115 @@ TEST( TransformIterator, UnaryTransformRoutine)
         global_id = 0; // Reset the global id counter
     }
 }
+
+
+TEST( TransformIterator, UnaryTransformUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+		std::vector< float > stlOut_float( length );
+		std::vector< float > svOutVec_float( length );
+		bolt::BCKND::device_vector< float > dvOutVec_float( length );
+
+        squareUDD_resultUDD sqUDD;
+		squareUDD_result_float sqUDD_float;
+
+        gen_input_udd genUDD;
+
+        typedef std::vector< UDD>::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD>                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+     
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+
+		UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD init;
+		init.i=0, init.f=0.0f;
+
+        counting_itr count_itr_begin(init);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        {/*Test case when input is trf Iterator*/
+            bolt::cl::transform(sv_trf_begin1, sv_trf_end1, svOutVec.begin(), sqUDD);
+            bolt::cl::transform(dv_trf_begin1, dv_trf_end1, dvOutVec.begin(), sqUDD);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, stlOut.begin(), sqUDD);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		 {/*Test case when input is trf Iterator and Output is float vector*/
+            bolt::cl::transform(sv_trf_begin1, sv_trf_end1, svOutVec_float.begin(), sqUDD_float);
+            bolt::cl::transform(dv_trf_begin1, dv_trf_end1, dvOutVec_float.begin(), sqUDD_float);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, stlOut_float.begin(), sqUDD_float);
+            /*Check the results*/
+            cmpArrays(svOutVec_float, stlOut_float, length);
+            cmpArrays(dvOutVec_float, stlOut_float, length);
+        }
+
+
+        {/*Test case when the input is randomAccessIterator */
+            bolt::cl::transform(svIn1Vec.begin(), svIn1Vec.end(), svOutVec.begin(), sqUDD);
+            bolt::cl::transform(dvIn1Vec.begin(), dvIn1Vec.end(), dvOutVec.begin(), sqUDD);
+            /*Compute expected results*/
+            std::transform(svIn1Vec.begin(), svIn1Vec.end(), stlOut.begin(), sqUDD);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the input is constant iterator  */
+            bolt::cl::transform(const_itr_begin, const_itr_end, svOutVec.begin(), sqUDD);
+            bolt::cl::transform(const_itr_begin, const_itr_end, dvOutVec.begin(), sqUDD);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::transform(const_vector.begin(), const_vector.end(), stlOut.begin(), sqUDD);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the input is a counting iterator */
+            bolt::cl::transform(count_itr_begin, count_itr_end, svOutVec.begin(), sqUDD);
+            bolt::cl::transform(count_itr_begin, count_itr_end, dvOutVec.begin(), sqUDD);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;
+            std::transform(count_vector.begin(), count_vector.end(), stlOut.begin(), sqUDD);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
+
+
 TEST( TransformIterator, BinaryTransformRoutine)
 {
     {
@@ -626,6 +871,170 @@ TEST( TransformIterator, BinaryTransformRoutine)
 }
 
 
+TEST( TransformIterator, BinaryTransformUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svIn2Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+
+		/*std::vector< float > stlOut_float( length );
+		std::vector< float > svOutVec_float( length );
+		bolt::BCKND::device_vector< float > dvOutVec_float( length );*/
+
+
+        bolt::cl::plus<UDD> plus;
+
+		cubeUDD_resultUDD cbUDD;
+        gen_input_udd genUDD;
+		squareUDD_resultUDD sqUDD;
+
+		typedef std::vector< UDD>::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< cubeUDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< cubeUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add4;    
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+		sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), cbUDD);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+		dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), cbUDD);
+
+		UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD init;
+		init.i=0, init.f=0.0f;
+
+        counting_itr count_itr_begin(init);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), genUDD);
+        global_id = 0;
+        {/*Test case when both inputs are trf Iterators*/
+            bolt::cl::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, svOutVec.begin(), plus);
+            bolt::cl::transform(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            bolt::cl::transform(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), svOutVec.begin(), plus);
+            bolt::cl::transform(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the second input is trf_itr and the first is a randomAccessIterator */
+            bolt::cl::transform(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, svOutVec.begin(), plus);
+            bolt::cl::transform(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::transform(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::transform(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svOutVec.begin(), plus);
+            bolt::cl::transform(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::transform(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the first input is trf_itr and the second is a constant iterator */
+            bolt::cl::transform(sv_trf_begin1, sv_trf_end1, const_itr_begin, svOutVec.begin(), plus);
+            bolt::cl::transform(dv_trf_begin1, dv_trf_end1, const_itr_begin, dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::transform(sv_trf_begin1, sv_trf_end1, const_vector.begin(), stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is counting iterator and the second is a trf_itr */
+            bolt::cl::transform( count_itr_begin, count_itr_end, sv_trf_begin1, svOutVec.begin(), plus);
+            bolt::cl::transform( count_itr_begin, count_itr_end, dv_trf_begin1, dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::transform(count_itr_begin, count_itr_end, sv_trf_begin1, stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+		 {/*Test case when the first input is counting iterator and the second is a constant iterator */
+            bolt::cl::transform(count_itr_begin, count_itr_end, const_itr_begin, svOutVec.begin(), plus);
+            bolt::cl::transform(count_itr_begin, count_itr_end, const_itr_begin, dvOutVec.begin(), plus);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);        
+            std::transform(count_itr_begin, count_itr_end, const_vector.begin(), stlOut.begin(), plus);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		//Tests fail with result mismatch!
+
+   //     {/*Test case when the first input is trf_itr and the second is a counting iterator */
+   //         bolt::cl::transform(sv_trf_begin1, sv_trf_end1, count_itr_begin, svOutVec.begin(), plus);
+   //         bolt::cl::transform(dv_trf_begin1, dv_trf_end1, count_itr_begin, dvOutVec.begin(), plus);
+   //         /*Compute expected results*/
+   //         std::vector<UDD> count_vector(length, init);
+   //         for (int index=1;index<length;index++)
+			//{
+   //             count_vector[index].i = count_vector[index-1].i + 1;
+			//	count_vector[index].f = count_vector[index-1].f + 1.f;
+			//}
+   //         std::transform(sv_trf_begin1, sv_trf_end1, count_vector.begin(), stlOut.begin(), plus);
+   //         /*Check the results*/
+   //         cmpArrays(svOutVec, stlOut, length);
+   //         cmpArrays(dvOutVec, stlOut, length);
+   //     }
+		
+   //     {/*Test case when the first input is constant iterator and the second is a counting iterator */
+   //         bolt::cl::transform(const_itr_begin, const_itr_end, count_itr_begin, svOutVec.begin(), plus);
+   //         bolt::cl::transform(const_itr_begin, const_itr_end, count_itr_begin, dvOutVec.begin(), plus);
+   //         /*Compute expected results*/
+   //         std::vector<UDD> const_vector(length,temp);
+   //         std::vector<UDD> count_vector(length);
+   //         for (int index=0;index<length;index++)
+			//{
+   //             count_vector[index].i = index;
+			//	count_vector[index].f = (float)index;
+			//}         
+   //         std::transform(const_vector.begin(), const_vector.end(), count_vector.begin(), stlOut.begin(), plus);
+   //         /*Check the results*/
+   //         cmpArrays(svOutVec, stlOut, length);
+   //         cmpArrays(dvOutVec, stlOut, length);
+   //     }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
 
 TEST( TransformIterator, InclusiveTransformScanRoutine)
 {
@@ -715,6 +1124,98 @@ TEST( TransformIterator, InclusiveTransformScanRoutine)
         global_id = 0; // Reset the global id counter
     }
 }
+
+TEST( TransformIterator, InclusiveTransformScanUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+        bolt::cl::negate<UDD> nI2;
+        bolt::cl::plus<UDD> addI2;
+
+		squareUDD_resultUDD sqUDD;
+        gen_input_udd genUDD;
+
+        typedef std::vector< UDD >::const_iterator                                                   sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
+       
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+
+        UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD t;
+		t.i=0, t.f=0.0f;
+
+        counting_itr count_itr_begin(t);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        {/*Test case when input is trf Iterator*/
+            bolt::cl::transform_inclusive_scan(sv_trf_begin1, sv_trf_end1, svOutVec.begin(), nI2, addI2);
+            bolt::cl::transform_inclusive_scan(dv_trf_begin1, dv_trf_end1, dvOutVec.begin(), nI2, addI2);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, stlOut.begin(), nI2);
+            std::partial_sum(stlOut.begin(), stlOut.end(), stlOut.begin(), addI2);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the input is randomAccessIterator */
+            bolt::cl::transform_inclusive_scan(svIn1Vec.begin(), svIn1Vec.end(), svOutVec.begin(), nI2, addI2);
+            bolt::cl::transform_inclusive_scan(dvIn1Vec.begin(), dvIn1Vec.end(), dvOutVec.begin(), nI2, addI2);
+            /*Compute expected results*/
+            std::transform(svIn1Vec.begin(), svIn1Vec.end(), stlOut.begin(), nI2);
+            std::partial_sum(stlOut.begin(), stlOut.end(), stlOut.begin(), addI2);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the input is constant iterator */
+            bolt::cl::transform_inclusive_scan(const_itr_begin, const_itr_end, svOutVec.begin(), nI2, addI2);
+            bolt::cl::transform_inclusive_scan(const_itr_begin, const_itr_end, dvOutVec.begin(), nI2, addI2);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::transform(const_vector.begin(), const_vector.end(), stlOut.begin(), nI2);
+            std::partial_sum(stlOut.begin(), stlOut.end(), stlOut.begin(), addI2);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the input is a counting iterator */
+            bolt::cl::transform_inclusive_scan(count_itr_begin, count_itr_end, svOutVec.begin(), nI2, addI2);
+            bolt::cl::transform_inclusive_scan(count_itr_begin, count_itr_end, dvOutVec.begin(), nI2, addI2);
+            /*Compute expected results*/  
+            std::transform(count_itr_begin, count_itr_end, stlOut.begin(), nI2);
+            std::partial_sum(stlOut.begin(), stlOut.end(), stlOut.begin(), addI2);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
+
 TEST( TransformIterator, ExclusiveTransformScanRoutine)
 {
     {
@@ -796,6 +1297,100 @@ TEST( TransformIterator, ExclusiveTransformScanRoutine)
                 count_vector[index] = index;
             std::transform(count_vector.begin(), count_vector.end(), stlOut.begin(), nI2);
             Serial_scan<int,  bolt::cl::plus< int >, int>(&stlOut[0], &stlOut[0], length, addI2, false, n);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
+TEST( TransformIterator, ExclusiveTransformScanUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+		bolt::cl::negate<UDD> nI2;
+        bolt::cl::plus<UDD> addI2;
+
+		squareUDD_resultUDD sqUDD;
+        gen_input_udd genUDD;
+
+		UDD n;
+	    n.i = (int) 1 + rand()%10;
+		n.f = (float) rand();
+
+        typedef std::vector< UDD >::const_iterator                                                   sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
+       
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+
+        UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD t;
+		t.i=0, t.f=0.0f;
+
+        counting_itr count_itr_begin(t);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        {/*Test case when inputs is a trf Iterator*/
+            bolt::cl::transform_exclusive_scan(sv_trf_begin1, sv_trf_end1, svOutVec.begin(), nI2, n, addI2);
+            bolt::cl::transform_exclusive_scan(dv_trf_begin1, dv_trf_end1, dvOutVec.begin(), nI2, n, addI2);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, stlOut.begin(), nI2);
+            Serial_scan<UDD,  bolt::cl::plus< UDD >, UDD>(&stlOut[0], &stlOut[0], length, addI2, false, n);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when input is a randomAccessIterator */
+            bolt::cl::transform_exclusive_scan(svIn1Vec.begin(), svIn1Vec.end(), svOutVec.begin(), nI2, n, addI2);
+            bolt::cl::transform_exclusive_scan(dvIn1Vec.begin(), dvIn1Vec.end(), dvOutVec.begin(), nI2, n, addI2);
+            /*Compute expected results*/
+            std::transform(svIn1Vec.begin(), svIn1Vec.end(), stlOut.begin(), nI2);
+            Serial_scan<UDD,  bolt::cl::plus< UDD >, UDD>(&stlOut[0], &stlOut[0], length, addI2, false, n);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when first input is a constant iterator */
+            bolt::cl::transform_exclusive_scan(const_itr_begin, const_itr_end, svOutVec.begin(), nI2, n, addI2);
+            bolt::cl::transform_exclusive_scan(const_itr_begin, const_itr_end, dvOutVec.begin(), nI2, n, addI2);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::transform(const_vector.begin(), const_vector.end(), stlOut.begin(), nI2);
+            Serial_scan<UDD,  bolt::cl::plus< UDD >, UDD>(&stlOut[0], &stlOut[0], length, addI2, false, n);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+        {/*Test case when the input is a counting iterator */
+            bolt::cl::transform_exclusive_scan(count_itr_begin, count_itr_end, svOutVec.begin(), nI2, n, addI2);
+            bolt::cl::transform_exclusive_scan(count_itr_begin, count_itr_end, dvOutVec.begin(), nI2, n, addI2);
+            /*Compute expected results*/
+            std::transform(count_itr_begin,  count_itr_end, stlOut.begin(), nI2);
+            Serial_scan<UDD,  bolt::cl::plus< UDD >, UDD>(&stlOut[0], &stlOut[0], length, addI2, false, n);
             /*Check the results*/
             cmpArrays(svOutVec, stlOut, length);
             cmpArrays(dvOutVec, stlOut, length);
@@ -887,6 +1482,111 @@ TEST( TransformIterator, ReduceRoutine)
         global_id = 0; // Reset the global id counter
     }
 }
+
+
+TEST( TransformIterator, ReduceUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svIn2Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+
+        UDDplus plus;
+		squareUDD_resultUDD sqUDD;
+		cubeUDD_resultUDD cbUDD;
+        gen_input_udd genUDD;
+
+        typedef std::vector< UDD >::const_iterator                                                   sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< cubeUDD_resultUDD, std::vector< UDD >::const_iterator>                sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< cubeUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>       dv_trf_itr_add4;   
+
+
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+		sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), cbUDD);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+		dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), cbUDD);
+
+        UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD init;
+		init.i=0, init.f=0.0f;
+
+
+        counting_itr count_itr_begin(init);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+		global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+		bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), genUDD);
+        global_id = 0;
+
+		UDD UDDzero;
+        UDDzero.i = 0;
+        UDDzero.f = 0.0f;
+
+
+        {/*Test case when input is trf Iterator*/
+            UDD sv_result = bolt::cl::reduce(sv_trf_begin1, sv_trf_end1, UDDzero, plus);
+            UDD dv_result = bolt::cl::reduce(dv_trf_begin1, dv_trf_end1, UDDzero, plus);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(sv_trf_begin1, sv_trf_end1, UDDzero, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when input is a randomAccessIterator */
+            UDD sv_result = bolt::cl::reduce(svIn2Vec.begin(), svIn2Vec.end(), UDDzero, plus);
+            UDD dv_result = bolt::cl::reduce(dvIn2Vec.begin(), dvIn2Vec.end(), UDDzero, plus);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(svIn2Vec.begin(), svIn2Vec.end(), UDDzero, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case wheninput is a constant iterator */
+            UDD sv_result = bolt::cl::reduce(const_itr_begin, const_itr_end, UDDzero, plus);
+            UDD dv_result = bolt::cl::reduce(const_itr_begin, const_itr_end, UDDzero, plus);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(const_itr_begin, const_itr_end, UDDzero, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when input is a counting iterator */
+            UDD sv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, UDDzero, plus);
+            UDD dv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, UDDzero, plus);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(count_itr_begin, count_itr_end, UDDzero, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
+
 TEST( TransformIterator, TransformReduceRoutine)
 {
     {
@@ -973,6 +1673,100 @@ TEST( TransformIterator, TransformReduceRoutine)
     }
 }
 
+TEST( TransformIterator, TransformReduceUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+
+        typedef std::vector< UDD >::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+
+		//UDDplus plus;
+		squareUDD_resultUDD sqUDD;
+        gen_input_udd genUDD;
+
+
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
+
+
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+
+        UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD t;
+		t.i=0, t.f=0.0f;
+
+        counting_itr count_itr_begin(t);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+		global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+
+        UDD init;
+		init.i = (int) rand();
+		init.f = (float) rand();
+
+        bolt::cl::plus<UDD> plus;
+        {/*Test case when inputs are trf Iterators*/
+            UDD sv_result = bolt::cl::transform_reduce(sv_trf_begin1, sv_trf_end1, sqUDD, init, plus);
+            UDD dv_result = bolt::cl::transform_reduce(dv_trf_begin1, dv_trf_end1,  sqUDD, init, plus);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, stlOut.begin(), sqUDD);
+            UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+
+        {/*Test case when the both are randomAccessIterator */
+            UDD sv_result = bolt::cl::transform_reduce(svIn1Vec.begin(), svIn1Vec.end(), sqUDD, init, plus);
+            UDD dv_result = bolt::cl::transform_reduce(dvIn1Vec.begin(), dvIn1Vec.end(), sqUDD, init, plus);
+            /*Compute expected results*/
+            std::transform(svIn1Vec.begin(), svIn1Vec.end(), stlOut.begin(), sqUDD);
+            UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is constant iterator and the second is a counting iterator */
+            UDD sv_result = bolt::cl::transform_reduce(const_itr_begin, const_itr_end, sqUDD, init, plus);
+            UDD dv_result = bolt::cl::transform_reduce(const_itr_begin, const_itr_end, sqUDD, init, plus);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::transform(const_vector.begin(), const_vector.end(), stlOut.begin(), sqUDD);
+            UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is constant iterator and the second is a counting iterator */
+            UDD sv_result = bolt::cl::transform_reduce(count_itr_begin, count_itr_end, sqUDD, init, plus);
+            UDD dv_result = bolt::cl::transform_reduce(count_itr_begin, count_itr_end, sqUDD, init, plus);
+            /*Compute expected results*/
+            std::transform(count_itr_begin, count_itr_end, stlOut.begin(), sqUDD);
+            UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
 
 #if 0
 TEST( TransformIterator, CopyRoutine)
@@ -1143,6 +1937,92 @@ TEST( TransformIterator, CountRoutine)
     }
 }
 
+TEST( TransformIterator, CountUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+
+		squareUDD_resultUDD sqUDD;
+        gen_input_udd genUDD;
+
+        typedef std::vector< UDD >::const_iterator                                                   sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
+       
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+
+        UDD temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD init;
+		init.i=1, init.f=1.0f;
+
+        counting_itr count_itr_begin(init);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+		
+		
+        UDD val;
+		val.i = (int) rand();
+		val.f = (float) rand();
+
+        {/*Test case when inputs are trf Iterators*/
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result =  bolt::cl::count(sv_trf_begin1, sv_trf_end1, val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result =  bolt::cl::count(dv_trf_begin1, dv_trf_end1, val);
+            /*Compute expected results*/
+            std::iterator_traits<std::vector<UDD>::iterator>::difference_type expected_result = std::count(sv_trf_begin1, sv_trf_end1, val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result =  bolt::cl::count(svIn1Vec.begin(), svIn1Vec.end(), val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result =  bolt::cl::count(dvIn1Vec.begin(), dvIn1Vec.end(), val);
+            /*Compute expected results*/
+            std::iterator_traits<std::vector<UDD>::iterator>::difference_type expected_result = std::count(svIn1Vec.begin(), svIn1Vec.end(), val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is constant iterator*/
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result =  bolt::cl::count(const_itr_begin, const_itr_end, val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result =  bolt::cl::count(const_itr_begin, const_itr_end, val);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::iterator_traits<std::vector<UDD>::iterator>::difference_type expected_result = std::count(const_vector.begin(), const_vector.end(), val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when the first input is counting iterator */
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type sv_result =  bolt::cl::count(count_itr_begin, count_itr_end, val);
+            bolt::cl::iterator_traits<bolt::cl::device_vector<UDD>::iterator>::difference_type dv_result =  bolt::cl::count(count_itr_begin, count_itr_end, val);
+            /*Compute expected results*/
+            std::iterator_traits<std::vector<int>::iterator>::difference_type expected_result = std::count(count_itr_begin, count_itr_end, val);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
 TEST( TransformIterator, InnerProductRoutine)
 {
     {
@@ -1245,6 +2125,122 @@ TEST( TransformIterator, InnerProductRoutine)
 }
 
 
+TEST( TransformIterator, InnerProductUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svIn2Vec( length);
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+
+        std::vector< UDD > stlOut( length );
+
+        bolt::cl::plus<UDD> plus;
+        UDDmul minus;
+
+        squareUDD_resultUDD sqUDD;
+        gen_input_udd genUDD;
+		gen_input_udd2 genUDD2;
+
+        typedef std::vector< UDD >::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+       
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+        sv_trf_itr_add3 sv_trf_begin2 (svIn2Vec.begin(), sqUDD);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(),sqUDD);
+
+
+		UDD temp;
+		temp.i=1, temp.f=2.5f;
+		UDD temp2;
+		temp2.i=15, temp2.f=7.5f;
+		UDD init1;
+		init1.i=1, init1.f=1.0f;
+        UDD init2;
+		init2.i=10, init2.f=10.0f;
+
+        counting_itr count_itr_begin(init1);
+        counting_itr count_itr_end = count_itr_begin + length;
+        counting_itr count_itr_begin2(init2);
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+        constant_itr const_itr_begin2(temp2);
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), genUDD2);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+
+        bolt::BCKND::device_vector< UDD > dvIn2Vec( svIn2Vec.begin(), svIn2Vec.end());
+        dv_trf_itr_add3 dv_trf_begin2 (dvIn2Vec.begin(), sqUDD);
+
+        global_id = 0;
+
+        UDD init;
+		init.i = (int) rand();
+		init.f = (float) rand();
+
+        {/*Test case when both inputs are trf Iterators*/
+            UDD sv_result = bolt::cl::inner_product(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, init, plus, minus);
+            UDD dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, init, plus, minus);
+            /*Compute expected results*/
+            std::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, stlOut.begin(), minus);
+            UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+		
+        {/*Test case when both inputs are constant iterators */
+            UDD sv_result = bolt::cl::inner_product(const_itr_begin, const_itr_end, const_itr_begin2, init, plus, minus);
+            UDD dv_result = bolt::cl::inner_product(const_itr_begin, const_itr_end, const_itr_begin2, init, plus, minus);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector2(length,temp2);
+            UDD expected_result = std::inner_product(const_itr_begin, const_itr_end, const_vector2.begin(), init, plus, minus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+
+		//Failing Test cases...
+
+    //    {/*Test case when the both inputs are randomAccessIterator */
+    //        UDD sv_result = bolt::cl::inner_product(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), init, plus, minus);
+    //        UDD dv_result = bolt::cl::inner_product(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), init, plus, minus);
+    //        /*Compute expected results*/
+    //        UDD expected_result = std::inner_product(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), init, plus, minus);
+    //        /*Check the results*/
+    //        EXPECT_EQ( expected_result, sv_result );
+    //        EXPECT_EQ( expected_result, dv_result );
+    //    }
+    //    {/*Test case when both inputs are counting iterators */
+    //        UDD sv_result = bolt::cl::inner_product(count_itr_begin, count_itr_end, count_itr_begin2, init, plus, minus);
+    //        UDD dv_result = bolt::cl::inner_product(count_itr_begin, count_itr_end, count_itr_begin2, init, plus, minus);
+    //        /*Compute expected results*/
+    //        std::vector<UDD> count_vector2(length);
+    //        for (int index=0;index<length;index++)
+    //        {
+    //            count_vector2[index].i = 10 + index;
+				//count_vector2[index].f = 10.0 + index;
+    //        }
+    //        UDD expected_result = std::inner_product(count_itr_begin, count_itr_end, count_vector2.begin(), init, plus, minus);
+    //        /*Check the results*/
+    //        EXPECT_EQ( expected_result, sv_result );
+    //        EXPECT_EQ( expected_result, dv_result );
+    //    }
+        global_id = 0; // Reset the global id counter
+    }
+}
+
 TEST( TransformIterator, ScatterRoutine)
 {
     {
@@ -1258,7 +2254,6 @@ TEST( TransformIterator, ScatterRoutine)
         bolt::BCKND::device_vector< int > dvOutVec( length );
 
         add_3 add3;
-        //add_4 add4;
 		add_0 add0;
 
         gen_input gen;
@@ -1269,7 +2264,6 @@ TEST( TransformIterator, ScatterRoutine)
         typedef bolt::BCKND::transform_iterator< add_3, std::vector< int >::const_iterator>            sv_trf_itr_add3;
         typedef bolt::BCKND::transform_iterator< add_3, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add3;
         typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add4;
-		//typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::iterator>            sv_trf_itr_add4;
         typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add4;    
         /*Create Iterators*/
         sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
@@ -1403,7 +2397,165 @@ TEST( TransformIterator, ScatterRoutine)
         global_id = 0; // Reset the global id counter
     }
  }
-  TEST( TransformIterator, ScatterIfRoutine)
+ 
+TEST( TransformIterator, ScatterUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< int > svIn2Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< int > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+        add3UDD_resultUDD add3;
+		add_0 add0;
+        gen_input_udd genUDD;
+		gen_input gen;
+
+        typedef std::vector< UDD >::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD  >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD  >                                                  constant_itr;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add4;    
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add0);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add0);
+
+		UDD temp;
+		temp.i = rand()%10, temp.f = (float) rand();
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+        global_id = 0;
+
+
+        {/*Test case when both inputs are trf Iterators*/
+            bolt::cl::scatter(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, svOutVec.begin());
+            bolt::cl::scatter(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_scatter(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            bolt::cl::scatter(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), svOutVec.begin());
+            bolt::cl::scatter(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_scatter(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is a randomAccessIterator  and second is a trf_itr */
+            bolt::cl::scatter(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, svOutVec.begin());
+            bolt::cl::scatter(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_scatter(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::scatter(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svOutVec.begin());
+            bolt::cl::scatter(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_scatter(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a counting iterator */
+            bolt::cl::scatter(sv_trf_begin1, sv_trf_end1, count_itr_begin, svOutVec.begin());
+            bolt::cl::scatter(dv_trf_begin1, dv_trf_end1, count_itr_begin, dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+			{
+                count_vector[index] = index;
+			}
+            Serial_scatter(sv_trf_begin1, sv_trf_end1, count_vector.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+		{/*Test case when the first input is constant iterator and the second is a randomAccessIterator */
+            bolt::cl::scatter(const_itr_begin, const_itr_end, svIn2Vec.begin(), svOutVec.begin());
+            bolt::cl::scatter(const_itr_begin, const_itr_end, dvIn2Vec.begin(), dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);          
+            Serial_scatter(const_vector.begin(), const_vector.end(), svIn2Vec.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        {/*Test case when the first input is constant iterator and the second is a counting iterator */
+            bolt::cl::scatter(const_itr_begin, const_itr_end, count_itr_begin, svOutVec.begin());
+            bolt::cl::scatter(const_itr_begin, const_itr_end, count_itr_begin, dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,temp);
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+			{
+                count_vector[index] = index;
+			}          
+            Serial_scatter(const_vector.begin(), const_vector.end(), count_vector.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		 {/*Test case when the first input is a randomAccessIterator and the second is a counting iterator */
+            bolt::cl::scatter(svIn1Vec.begin(), svIn1Vec.end(), count_itr_begin, svOutVec.begin());
+            bolt::cl::scatter(dvIn1Vec.begin(), dvIn1Vec.end(), count_itr_begin, dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+			{
+                count_vector[index] = index;
+			}           
+            Serial_scatter(svIn1Vec.begin(), svIn1Vec.end(), count_vector.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        global_id = 0; // Reset the global id counter
+    }
+ }
+
+
+ TEST( TransformIterator, ScatterIfRoutine)
  {
     {
         const int length = 1<<10;
@@ -1671,6 +2823,279 @@ TEST( TransformIterator, ScatterRoutine)
     }
  }
 
+ TEST( TransformIterator, ScatterIfUDDRoutine)
+ {
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length ); // input
+        std::vector< int > svIn2Vec( length ); // map
+		std::vector< int > svIn3Vec( length ); // stencil
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD> dvIn1Vec( length );
+        bolt::BCKND::device_vector< int > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+		for(int i=0; i<length; i++)
+		{
+			if(i%2 == 0)
+				svIn3Vec[i] = 0;
+			else
+				svIn3Vec[i] = 1;
+		}
+		bolt::BCKND::device_vector< int > dvIn3Vec( svIn3Vec.begin(), svIn3Vec.end() );
+
+		add3UDD_resultUDD add3;
+		add_0 add0;
+        gen_input_udd genUDD;
+		gen_input gen;
+
+        typedef std::vector< UDD >::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+		typedef bolt::BCKND::constant_iterator< int >                                                  const_itr;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add4;  
+		typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add0;
+        typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add0; 
+
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add0);
+		sv_trf_itr_add0 sv_trf_begin3 (svIn3Vec.begin(), add0);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add0);
+		dv_trf_itr_add0 dv_trf_begin3 (dvIn3Vec.begin(), add0);
+
+		UDD t;
+		t.i = (int)rand()%10;
+		t.f = (float)rand();
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(t);
+        constant_itr const_itr_end = const_itr_begin + length;
+		const_itr stencil_itr_begin(1);
+        const_itr stencil_itr_end = stencil_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+        global_id = 0;
+
+		is_even iepred;
+
+        {/*Test case when both inputs are trf Iterators*/
+            bolt::cl::scatter_if(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, sv_trf_begin3, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dv_trf_begin3, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_scatter_if(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, sv_trf_begin3, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            bolt::cl::scatter_if(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), sv_trf_begin3, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), dv_trf_begin3, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_scatter_if(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), sv_trf_begin3, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            bolt::cl::scatter_if(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_scatter_if(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is a randomAccessIterator  and second is a trf_itr */
+            bolt::cl::scatter_if(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, sv_trf_begin3, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, dv_trf_begin3, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_scatter_if(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, sv_trf_begin3, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is a randomAccessIterator  and second is a trf_itr */
+            bolt::cl::scatter_if(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_scatter_if(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+		{/*Test case when the first input is trf_itr and the second is a counting iterator */
+            bolt::cl::scatter_if(sv_trf_begin1, sv_trf_end1, count_itr_begin, svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dv_trf_begin1, dv_trf_end1, count_itr_begin, dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;
+            Serial_scatter_if(sv_trf_begin1, sv_trf_end1, count_vector.begin(), svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is trf_itr and the second is a counting iterator */
+            bolt::cl::scatter_if(sv_trf_begin1, sv_trf_end1, count_itr_begin, stencil_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dv_trf_begin1, dv_trf_end1, count_itr_begin, stencil_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length), stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+                count_vector[index] = index;
+				stencil_vector[index] = 1;
+			}
+            Serial_scatter_if(sv_trf_begin1, sv_trf_end1, count_vector.begin(), stencil_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::scatter_if(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_scatter_if(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+       
+		{/*Test case when the both are randomAccessIterator */
+            bolt::cl::scatter_if(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), stencil_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), stencil_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+			}
+            Serial_scatter_if(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), stencil_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+		{/*Test case when the first input is constant iterator and the second is a randomAccessIterator */
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, svIn2Vec.begin(), svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, dvIn2Vec.begin(), dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);          
+            Serial_scatter_if(const_vector.begin(), const_vector.end(), svIn2Vec.begin(), svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a randomAccessIterator */
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, svIn2Vec.begin(), stencil_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, dvIn2Vec.begin(), stencil_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t); 
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+			}
+            Serial_scatter_if(const_vector.begin(), const_vector.end(), svIn2Vec.begin(), stencil_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        {/*Test case when the first input is constant iterator and the second is a counting iterator */
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, count_itr_begin, svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, count_itr_begin, dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;            
+            Serial_scatter_if(const_vector.begin(), const_vector.end(), count_vector.begin(), svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a counting iterator */
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, count_itr_begin, stencil_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(const_itr_begin, const_itr_end, count_itr_begin, stencil_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);
+            std::vector<int> count_vector(length);
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+				count_vector[index] = index; 
+			}
+                           
+            Serial_scatter_if(const_vector.begin(), const_vector.end(), count_vector.begin(),  stencil_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+		{/*Test case when the first input is a randomAccessIterator and the second is a counting iterator */
+            bolt::cl::scatter_if(svIn1Vec.begin(), svIn1Vec.end(), count_itr_begin, svIn3Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dvIn1Vec.begin(), dvIn1Vec.end(), count_itr_begin, dvIn3Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;            
+            Serial_scatter_if(svIn1Vec.begin(), svIn1Vec.end(), count_vector.begin(), svIn3Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is a randomAccessIterator and the second is a counting iterator */
+            bolt::cl::scatter_if(svIn1Vec.begin(), svIn1Vec.end(), count_itr_begin, stencil_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::scatter_if(dvIn1Vec.begin(), dvIn1Vec.end(), count_itr_begin, stencil_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+				count_vector[index] = index; 
+			}
+            Serial_scatter_if(svIn1Vec.begin(), svIn1Vec.end(), count_vector.begin(), stencil_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        global_id = 0; // Reset the global id counter
+    }
+ }
 
  TEST( TransformIterator, GatherRoutine)
 {
@@ -1818,7 +3243,160 @@ TEST( TransformIterator, ScatterRoutine)
         global_id = 0; // Reset the global id counter
     }
  }
-  TEST( TransformIterator, GatherIfRoutine)
+
+TEST( TransformIterator, GatherUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD> svIn1Vec( length );
+        std::vector< int > svIn2Vec( length );
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< int > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+        add3UDD_resultUDD add3;
+		add_0 add0;
+        gen_input_udd genUDD;
+		gen_input gen;
+
+        typedef std::vector< UDD >::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add4;    
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3); 
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add0), sv_trf_end2 (svIn2Vec.end(), add0);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add0), dv_trf_end2 (dvIn2Vec.end(), add0);
+
+		UDD t;
+		t.i = (int)rand()%10;
+		t.f = (float) rand();
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(t);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+        global_id = 0;
+
+
+        {/*Test case when both inputs are trf Iterators*/
+            bolt::cl::gather(sv_trf_begin2, sv_trf_end2, sv_trf_begin1, svOutVec.begin());
+            bolt::cl::gather(dv_trf_begin2, dv_trf_end2, dv_trf_begin1, dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_gather(sv_trf_begin2, sv_trf_end2, sv_trf_begin1, stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is trf_itr and map is a randomAccessIterator */
+            bolt::cl::gather(sv_trf_begin2, sv_trf_end2, svIn1Vec.begin(), svOutVec.begin());
+            bolt::cl::gather(dv_trf_begin2, dv_trf_end2, dvIn1Vec.begin(), dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_gather(sv_trf_begin2, sv_trf_end2, svIn1Vec.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is a randomAccessIterator  and map is a trf_itr */
+            bolt::cl::gather(svIn2Vec.begin(), svIn2Vec.end(), sv_trf_begin1, svOutVec.begin());
+            bolt::cl::gather(dvIn2Vec.begin(), dvIn2Vec.end(), dv_trf_begin1, dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_gather(svIn2Vec.begin(), svIn2Vec.end(), sv_trf_begin1, stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::gather(svIn2Vec.begin(), svIn2Vec.end(), svIn1Vec.begin(), svOutVec.begin());
+            bolt::cl::gather(dvIn2Vec.begin(), dvIn2Vec.end(), dvIn1Vec.begin(), dvOutVec.begin());
+            /*Compute expected results*/
+            Serial_gather(svIn2Vec.begin(), svIn2Vec.end(), svIn1Vec.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is trf_itr and map is a counting iterator */
+            bolt::cl::gather(count_itr_begin, count_itr_end, sv_trf_begin1, svOutVec.begin());
+            bolt::cl::gather(count_itr_begin, count_itr_end, dv_trf_begin1, dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;
+            Serial_gather(count_vector.begin(), count_vector.end(), sv_trf_begin1, stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+		{/*Test case when the first input is constant iterator and map is a randomAccessIterator */
+            bolt::cl::gather(svIn2Vec.begin(), svIn2Vec.end(), const_itr_begin, svOutVec.begin());
+            bolt::cl::gather(dvIn2Vec.begin(), dvIn2Vec.end(), const_itr_begin, dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);          
+            Serial_gather(svIn2Vec.begin(), svIn2Vec.end(), const_vector.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        {/*Test case when the first input is constant iterator and map is a counting iterator */
+            bolt::cl::gather(count_itr_begin,  count_itr_end, const_itr_begin, svOutVec.begin());
+            bolt::cl::gather(count_itr_begin,  count_itr_end, const_itr_begin, dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;            
+            Serial_gather( count_vector.begin(), count_vector.end(), const_vector.begin(), stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		 {/*Test case when the first input is a randomAccessIterator and map is a counting iterator */
+            bolt::cl::gather(count_itr_begin, count_itr_end, svIn1Vec.begin(), svOutVec.begin());
+            bolt::cl::gather(count_itr_begin, count_itr_end, dvIn1Vec.begin(), dvOutVec.begin());
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;            
+            Serial_gather(count_vector.begin(), count_vector.end(), svIn1Vec.begin(),stlOut.begin());
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        global_id = 0; // Reset the global id counter
+    }
+ }
+
+
+ TEST( TransformIterator, GatherIfRoutine)
  {
     {
         const int length = 1<<10;
@@ -2031,9 +3609,282 @@ TEST( TransformIterator, ScatterRoutine)
 
 		{/*Test case when the first input is constant iterator and the second is a counting iterator */
             bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, const_itr_begin, svOutVec.begin(), iepred);
-            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, count_itr_begin, dvOutVec.begin(), iepred);
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, const_itr_begin, dvOutVec.begin(), iepred);
             /*Compute expected results*/
             std::vector<int> const_vector(length,1);
+            std::vector<int> count_vector(length);
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+				count_vector[index] = index; 
+			}
+                           
+            Serial_gather_if(count_vector.begin(), count_vector.end(), stencil_vector.begin(), const_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+		{/*Test case when the first input is a randomAccessIterator and the second is a counting iterator */
+            bolt::cl::gather_if( count_itr_begin, count_itr_end, svIn3Vec.begin(), svIn1Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::gather_if( count_itr_begin, count_itr_end, dvIn3Vec.begin(), dvIn1Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;            
+            Serial_gather_if(count_vector.begin(), count_vector.end(), svIn3Vec.begin(), svIn1Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is a randomAccessIterator and the second is a counting iterator */
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, svIn1Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, dvIn1Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+				count_vector[index] = index; 
+			}
+            Serial_gather_if(count_vector.begin(), count_vector.end(), stencil_vector.begin(), svIn1Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        global_id = 0; // Reset the global id counter
+    }
+ }
+
+
+TEST( TransformIterator, GatherIfUDDRoutine)
+ {
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length ); // input
+        std::vector< int > svIn2Vec( length ); // map
+		std::vector< int > svIn3Vec( length ); // stencil
+        std::vector< UDD > svOutVec( length );
+        std::vector< UDD > stlOut( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< int > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec( length );
+
+		for(int i=0; i<length; i++)
+		{
+			if(i%2 == 0)
+				svIn3Vec[i] = 0;
+			else
+				svIn3Vec[i] = 1;
+		}
+		bolt::BCKND::device_vector< int > dvIn3Vec( svIn3Vec.begin(), svIn3Vec.end() );
+
+        add3UDD_resultUDD add3;
+		add_0 add0;
+        gen_input_udd genUDD;
+		gen_input gen;
+
+        
+		typedef std::vector< UDD >::const_iterator                                                     sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                            dv_itr;
+        typedef bolt::BCKND::counting_iterator< int >                                                  counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                  constant_itr;
+		typedef bolt::BCKND::constant_iterator< int >                                                  const_itr;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, std::vector< UDD >::const_iterator>            sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add3UDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>   dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add4;  
+		typedef bolt::BCKND::transform_iterator< add_0, std::vector< int >::const_iterator>            sv_trf_itr_add0;
+        typedef bolt::BCKND::transform_iterator< add_0, bolt::BCKND::device_vector< int >::iterator>   dv_trf_itr_add0; 
+
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3); // Input
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), add0), sv_trf_end2 (svIn2Vec.end(), add0); //Map
+		sv_trf_itr_add0 sv_trf_begin3 (svIn3Vec.begin(), add0); // Stencil
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), add0), dv_trf_end2 (dvIn2Vec.end(), add0);
+		dv_trf_itr_add0 dv_trf_begin3 (dvIn3Vec.begin(), add0);
+
+		UDD t;
+		t.i = (int)rand()%10;
+		t.f = (float)rand();
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(t);
+        constant_itr const_itr_end = const_itr_begin + length;
+		const_itr stencil_itr_begin(1);
+        const_itr stencil_itr_end = stencil_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+        global_id = 0;
+
+		is_even iepred;
+
+        {/*Test case when both inputs are trf Iterators*/
+            bolt::cl::gather_if(sv_trf_begin2, sv_trf_end2, sv_trf_begin3, sv_trf_begin1, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dv_trf_begin2, dv_trf_end2, dv_trf_begin3, dv_trf_begin1, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_gather_if(sv_trf_begin2, sv_trf_end2, sv_trf_begin3, sv_trf_begin1, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            bolt::cl::gather_if(svIn2Vec.begin(), svIn2Vec.end(), sv_trf_begin3, sv_trf_begin1, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dvIn2Vec.begin(), dvIn2Vec.end(), dv_trf_begin3, dv_trf_begin1, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_gather_if(svIn2Vec.begin(), svIn2Vec.end(), sv_trf_begin3, sv_trf_begin1, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+		{/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            bolt::cl::gather_if(svIn2Vec.begin(), svIn2Vec.end(), svIn3Vec.begin(), sv_trf_begin1, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dvIn2Vec.begin(), dvIn2Vec.end(), dvIn3Vec.begin(), dv_trf_begin1, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_gather_if(svIn2Vec.begin(), svIn2Vec.end(), svIn3Vec.begin(), sv_trf_begin1, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+        {/*Test case when the first input is a randomAccessIterator  and second is a trf_itr */
+            bolt::cl::gather_if(sv_trf_begin2, sv_trf_end2, sv_trf_begin3, svIn1Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::gather_if( dv_trf_begin2, dv_trf_end2, dv_trf_begin3, dvIn1Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_gather_if(sv_trf_begin2, sv_trf_end2, sv_trf_begin3, svIn1Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is a randomAccessIterator  and second is a trf_itr */
+            bolt::cl::gather_if(sv_trf_begin2, sv_trf_end2, svIn3Vec.begin(), svIn1Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dv_trf_begin2, dv_trf_end2, dvIn3Vec.begin(), dvIn1Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_gather_if(sv_trf_begin2, sv_trf_end2, svIn3Vec.begin(), svIn1Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is trf_itr and the second is a counting iterator */
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, svIn3Vec.begin(), sv_trf_begin1, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, dvIn3Vec.begin(), dv_trf_begin1, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;
+            Serial_gather_if(count_vector.begin(), count_vector.end(), svIn3Vec.begin(), sv_trf_begin1, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is trf_itr and the second is a counting iterator */
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, sv_trf_begin1, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, dv_trf_begin1, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length), stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+                count_vector[index] = index;
+				stencil_vector[index] = 1;
+			}
+            Serial_gather_if(count_vector.begin(), count_vector.end(), stencil_vector.begin(), sv_trf_begin1, stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        {/*Test case when the both are randomAccessIterator */
+            bolt::cl::gather_if(svIn2Vec.begin(), svIn2Vec.end(), svIn3Vec.begin(), svIn1Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dvIn2Vec.begin(), dvIn2Vec.end(), dvIn3Vec.begin(), dvIn1Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            Serial_gather_if(svIn2Vec.begin(), svIn2Vec.end(), svIn3Vec.begin(), svIn1Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+       
+		{/*Test case when the both are randomAccessIterator */
+            bolt::cl::gather_if(svIn2Vec.begin(), svIn2Vec.end(), stencil_itr_begin, svIn1Vec.begin(), svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dvIn2Vec.begin(), dvIn2Vec.end(), stencil_itr_begin,  dvIn1Vec.begin(), dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+			}
+            Serial_gather_if(svIn2Vec.begin(), svIn2Vec.end(), stencil_vector.begin(), svIn1Vec.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a randomAccessIterator */
+            bolt::cl::gather_if(svIn2Vec.begin(), svIn2Vec.end(), svIn3Vec.begin(), const_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dvIn2Vec.begin(), dvIn2Vec.end(), dvIn3Vec.begin(), const_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);          
+            Serial_gather_if(svIn2Vec.begin(), svIn2Vec.end(), svIn3Vec.begin(), const_vector.begin(),stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a randomAccessIterator */
+            bolt::cl::gather_if(svIn2Vec.begin(), svIn2Vec.end(), stencil_itr_begin, const_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(dvIn2Vec.begin(), dvIn2Vec.end(), stencil_itr_begin, const_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t); 
+			std::vector<int> stencil_vector(length);
+            for (int index=0;index<length;index++)
+			{
+				stencil_vector[index] = 1;
+			}
+            Serial_gather_if(svIn2Vec.begin(), svIn2Vec.end(), stencil_vector.begin(), const_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+
+        {/*Test case when the first input is constant iterator and the second is a counting iterator */
+            bolt::cl::gather_if( count_itr_begin, count_itr_end, svIn3Vec.begin(), const_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::gather_if( count_itr_begin, count_itr_end, dvIn3Vec.begin(), const_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;            
+            Serial_gather_if(count_vector.begin(), count_vector.end(), svIn3Vec.begin(), const_vector.begin(), stlOut.begin(), iepred);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a counting iterator */
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, const_itr_begin, svOutVec.begin(), iepred);
+            bolt::cl::gather_if(count_itr_begin, count_itr_end, stencil_itr_begin, const_itr_begin, dvOutVec.begin(), iepred);
+            /*Compute expected results*/
+            std::vector<UDD> const_vector(length,t);
             std::vector<int> count_vector(length);
 			std::vector<int> stencil_vector(length);
             for (int index=0;index<length;index++)
@@ -2274,6 +4125,207 @@ TEST( TransformIterator, ReduceByKeyRoutine)
     }
 }
 
+#if 0
+TEST( TransformIterator, ReduceByKeyUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD > svIn1Vec( length );
+        std::vector< UDD > svIn2Vec( length );
+        std::vector< UDD > svOutVec1( length );
+		std::vector< UDD > svOutVec2( length );
+        std::vector< UDD > stlOut1( length );
+		std::vector< UDD > stlOut2( length );
+        bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
+        bolt::BCKND::device_vector< UDD > dvIn2Vec( length );
+        bolt::BCKND::device_vector< UDD > dvOutVec1( length );
+		bolt::BCKND::device_vector< UDD > dvOutVec2( length );
+
+        bolt::cl::equal_to<UDD> binary_predictor;
+        bolt::cl::plus<UDD> binary_operator;
+		squareUDD_resultUDD sqUDD;
+		cubeUDD_resultUDD cbUDD;
+        gen_input_udd genUDD;
+
+        typedef std::vector< UDD >::const_iterator                                                         sv_itr;
+        typedef bolt::BCKND::device_vector< UDD >::iterator                                                dv_itr;
+        typedef bolt::BCKND::counting_iterator< UDD >                                                      counting_itr;
+        typedef bolt::BCKND::constant_iterator< UDD >                                                      constant_itr;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, std::vector< UDD >::const_iterator>                sv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>       dv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< cubeUDD_resultUDD, std::vector< UDD >::const_iterator>                sv_trf_itr_add4;
+        typedef bolt::BCKND::transform_iterator< cubeUDD_resultUDD, bolt::BCKND::device_vector< UDD >::iterator>       dv_trf_itr_add4;    
+        /*Create Iterators*/
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), sqUDD), sv_trf_end1 (svIn1Vec.end(), sqUDD);
+        sv_trf_itr_add4 sv_trf_begin2 (svIn2Vec.begin(), cbUDD);
+        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), sqUDD), dv_trf_end1 (dvIn1Vec.end(), sqUDD);
+        dv_trf_itr_add4 dv_trf_begin2 (dvIn2Vec.begin(), cbUDD);
+
+		UDD temp;
+		temp.i = (int) rand()%10;
+		temp.f = (float) rand();
+		UDD t;
+		t.i = 0;
+		t.f = 0.0f;
+
+        counting_itr count_itr_begin(t);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        /*Generate inputs*/
+        global_id = 0;
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+        global_id = 0;
+        std::generate(svIn2Vec.begin(), svIn2Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
+        global_id = 0;
+        bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), genUDD);
+        global_id = 0;
+
+		std::vector< UDD > testInput1( svIn1Vec.begin(), svIn1Vec.end() );
+		std::vector< UDD > testInput2( svIn2Vec.begin(), svIn2Vec.end() );
+		for(int i=0; i<length; i++)
+		{
+			testInput1[i].i = testInput1[i].i * testInput1[i].i;
+			testInput1[i].f = testInput1[i].f * testInput1[i].f;
+			testInput2[i].i = testInput2[i].i * testInput2[i].i * testInput2[i].i;
+			testInput2[i].f = testInput2[i].f * testInput2[i].f * testInput2[i].f;
+		}
+
+		std::vector< UDD > constVector(length, temp);
+		std::vector< UDD > countVector(length);
+		for(int i=0; i<length; i++)
+		{
+			countVector[i].i=i;
+			countVector[i].f=(float)i;
+		}
+
+        {/*Test case when inputs are trf Iterators*/
+            auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD >> (&testInput1[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+        {/*Test case when the first input is trf_itr and the second is a randomAccessIterator */
+            auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, svIn2Vec.begin(), svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, dvIn2Vec.begin(), dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD >> (&testInput1[0], &svIn2Vec[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		 {/*Test case when the first input is randomAccessIterator and the second is a trf_itr*/
+            auto sv_result = bolt::cl::reduce_by_key(svIn1Vec.begin(), svIn1Vec.end(), sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dvIn1Vec.begin(), dvIn1Vec.end(), dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD >> (&svIn1Vec[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a constant iterator */
+            auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, const_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, const_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&testInput1[0], &constVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a  trf_itr */
+            auto sv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&constVector[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+        {/*Test case when the first input is trf_itr and the second is a counting iterator */      
+			auto sv_result = bolt::cl::reduce_by_key(sv_trf_begin1, sv_trf_end1, count_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dv_trf_begin1, dv_trf_end1, count_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&testInput1[0], &countVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		{/*Test case when the first input is counting iterator and the second is a trf_itr */
+            auto sv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, sv_trf_begin2, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, dv_trf_begin2, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&countVector[0], &testInput2[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+
+		 {/*Test case when the both inputs are randomAccessIterators*/
+            auto sv_result = bolt::cl::reduce_by_key(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&svIn1Vec[0], &svIn2Vec[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		{/*Test case when the first input is constant iterator and the second is a counting iterator */
+            auto sv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, count_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(const_itr_begin, const_itr_end, count_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&constVector[0], &countVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		 {/*Test case when the first input is counting iterator and the second is a constant iterator */
+            auto sv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, const_itr_begin, svOutVec1.begin(), svOutVec2.begin(), binary_predictor, binary_operator);
+            auto dv_result = bolt::cl::reduce_by_key(count_itr_begin, count_itr_end, const_itr_begin, dvOutVec1.begin(), dvOutVec2.begin(), binary_predictor, binary_operator);
+            /*Compute expected results*/
+            unsigned int n= Serial_reduce_by_key<UDD, UDD, UDD, UDD, bolt::cl::plus< UDD>> (&countVector[0], &constVector[0], &stlOut1[0], &stlOut2[0], binary_operator, length);
+            /*Check the results*/
+            cmpArrays(svOutVec1, stlOut1, length);
+			cmpArrays(svOutVec2, stlOut2, length);
+            cmpArrays(dvOutVec1, stlOut1, length);
+			cmpArrays(dvOutVec2, stlOut2, length);
+        }
+
+		global_id = 0; // Reset the global id counter
+    }
+}
+#endif
 
 TEST( TransformIterator, InclusiveScanRoutine)
 {
@@ -2306,10 +4358,8 @@ TEST( TransformIterator, InclusiveScanRoutine)
         counting_itr count_itr_begin(0);
         counting_itr count_itr_end = count_itr_begin + length;
         constant_itr const_itr_begin(1);
-        constant_itr const_itr_end = const_itr_begin + length;
+		constant_itr const_itr_end = const_itr_begin + length;
 
-        /*Generate inputs*/
-        global_id = 0;
         std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
         global_id = 0;
         bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), gen);
@@ -2358,6 +4408,7 @@ TEST( TransformIterator, InclusiveScanRoutine)
         global_id = 0; // Reset the global id counter
     }
 }
+
 TEST( TransformIterator, InclusiveScanbykeyRoutine)
 {
     {
@@ -2478,6 +4529,7 @@ TEST( TransformIterator, InclusiveScanbykeyRoutine)
         global_id = 0; // Reset the global id counter
     }
 }
+
 
 /* /brief List of possible tests
  * Two input transform with first input a constant iterator
