@@ -2257,8 +2257,8 @@ TEST( TransformIterator, InnerProductUDDRoutine)
             std::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2_copy.begin(), stlOut.begin(), minus);
             UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
 
-			//Note: std::accumulate with multiply results in result mismatch. Hence calling bolt::cl::reduce with mul 
-			//UDD expected_result = bolt::cl::reduce(stlOut.begin(), stlOut.end(), init, mul); 
+			//Note: with multiply there is result mismatch observed. Hence calling bolt::cl::reduce instead of std::accumulate.
+			//UDD expected_result = bolt::cl::reduce(stlOut.begin(), stlOut.end(), init, plus); 
 
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
