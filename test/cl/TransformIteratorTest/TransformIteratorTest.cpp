@@ -289,6 +289,20 @@ struct UDDmul
 };
 );
 
+BOLT_FUNCTOR( UDDminus,
+struct UDDminus
+{
+   UDD operator() (const UDD &lhs, const UDD &rhs) const
+   {
+     UDD _result;
+     _result.i = lhs.i - rhs.i;
+     _result.f = lhs.f - rhs.f;
+     return _result;
+   }
+
+};
+);
+
 /*Create Device Vector Iterators*/
 BOLT_TEMPLATE_REGISTER_NEW_ITERATOR( bolt::cl::device_vector, int, UDD);
 
@@ -2179,8 +2193,8 @@ TEST( TransformIterator, InnerProductUDDRoutine)
         std::vector< UDD > stlOut( length );
 
         bolt::cl::plus<UDD> plus;
-		//std::plus<UDD> stdplus;
-        UDDmul minus;
+        /*UDDmul mul*/
+		UDDminus minus;
 
         add3UDD_resultUDD sqUDD;
         gen_input_udd genUDD;
@@ -2241,7 +2255,11 @@ TEST( TransformIterator, InnerProductUDDRoutine)
             UDD dv_result = bolt::cl::inner_product(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, init, plus, minus);
             /*Compute expected results*/
             std::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2_copy.begin(), stlOut.begin(), minus);
-            UDD expected_result = bolt::cl::reduce(stlOut.begin(), stlOut.end(), init, plus);
+            UDD expected_result = std::accumulate(stlOut.begin(), stlOut.end(), init, plus);
+
+			//Note: std::accumulate with multiply results in result mismatch. Hence calling bolt::cl::reduce with mul 
+			//UDD expected_result = bolt::cl::reduce(stlOut.begin(), stlOut.end(), init, mul); 
+
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );
@@ -2262,9 +2280,9 @@ TEST( TransformIterator, InnerProductUDDRoutine)
             UDD sv_result = bolt::cl::inner_product(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), init, plus, minus);
             UDD dv_result = bolt::cl::inner_product(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), init, plus, minus);
             /*Compute expected results*/
-			std::transform(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svOutVec.begin(), minus);
-			UDD expected_result = bolt::cl::reduce(svOutVec.begin(), svOutVec.end(), init, plus);
-            //UDD expected_result = std::inner_product(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), init, plus, minus);
+			//std::transform(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), svOutVec.begin(), minus);
+			//UDD expected_result = bolt::cl::reduce(svOutVec.begin(), svOutVec.end(), init, mul);
+            UDD expected_result = std::inner_product(svIn1Vec.begin(), svIn1Vec.end(), svIn2Vec.begin(), init, plus, minus);
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );
@@ -2275,10 +2293,9 @@ TEST( TransformIterator, InnerProductUDDRoutine)
             UDD dv_result = bolt::cl::inner_product(count_itr_begin, count_itr_end, count_itr_begin2, init, plus, minus);
             /*Compute expected results*/
             std::vector<UDD> count_vector2(count_itr_begin2, count_itr_end2); 
-
-			std::transform(count_itr_begin, count_itr_end, count_vector2.begin(), svOutVec.begin(), minus);
-			UDD expected_result = bolt::cl::reduce(svOutVec.begin(), svOutVec.end(), init, plus);
-            //UDD expected_result = std::inner_product(count_itr_begin, count_itr_end, count_vector2.begin(), init, plus, minus);
+			//std::transform(count_itr_begin, count_itr_end, count_vector2.begin(), svOutVec.begin(), minus);
+			//UDD expected_result = bolt::cl::reduce(svOutVec.begin(), svOutVec.end(), init, mul);
+            UDD expected_result = std::inner_product(count_itr_begin, count_itr_end, count_vector2.begin(), init, plus, minus);
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );
