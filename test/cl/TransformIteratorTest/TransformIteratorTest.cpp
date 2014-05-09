@@ -956,6 +956,7 @@ TEST( TransformIterator, BinaryTransformUDDRoutine)
         bolt::BCKND::device_vector< UDD > dvOutVec( length );
 
         bolt::cl::plus<UDD> plus;
+		//UDDmul plus;
 
 		cubeUDD_resultUDD cbUDD;
         gen_input_udd genUDD;
@@ -1553,6 +1554,7 @@ TEST( TransformIterator, ReduceUDDRoutine)
 
 
         UDDplus plus;
+		UDDmul mul;
 		add3UDD_resultUDD sqUDD;
 		add4UDD_resultUDD cbUDD;
         gen_input_udd genUDD;
@@ -1600,6 +1602,9 @@ TEST( TransformIterator, ReduceUDDRoutine)
         UDDzero.i = 0;
         UDDzero.f = 0.0f;
 
+		UDD UDDone;
+        UDDzero.i = 1;
+        UDDzero.f = 1.0f;
 
         {/*Test case when input is trf Iterator*/
             UDD sv_result = bolt::cl::reduce(sv_trf_begin1, sv_trf_end1, UDDzero, plus);
@@ -1633,6 +1638,44 @@ TEST( TransformIterator, ReduceUDDRoutine)
             UDD dv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, UDDzero, plus);
             /*Compute expected results*/
             UDD expected_result = std::accumulate(count_itr_begin, count_itr_end, UDDzero, plus);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+
+		//Failing Test Cases
+	    {/*Test case when input is trf Iterator*/
+            UDD sv_result = bolt::cl::reduce(sv_trf_begin1, sv_trf_end1, UDDone, mul);
+            UDD dv_result = bolt::cl::reduce(dv_trf_begin1, dv_trf_end1, UDDone, mul);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(sv_trf_begin1, sv_trf_end1, UDDone, mul);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when input is a randomAccessIterator */
+            UDD sv_result = bolt::cl::reduce(svIn2Vec.begin(), svIn2Vec.end(), UDDone, mul);
+            UDD dv_result = bolt::cl::reduce(dvIn2Vec.begin(), dvIn2Vec.end(), UDDone, mul);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(svIn2Vec.begin(), svIn2Vec.end(), UDDone, mul);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when input is a constant iterator */
+            UDD sv_result = bolt::cl::reduce(const_itr_begin, const_itr_end, UDDone, mul);
+            UDD dv_result = bolt::cl::reduce(const_itr_begin, const_itr_end, UDDone, mul);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(const_itr_begin, const_itr_end, UDDone, mul);
+            /*Check the results*/
+            EXPECT_EQ( expected_result, sv_result );
+            EXPECT_EQ( expected_result, dv_result );
+        }
+        {/*Test case when input is a counting iterator */
+            UDD sv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, UDDone, mul);
+            UDD dv_result = bolt::cl::reduce(count_itr_begin, count_itr_end, UDDone, mul);
+            /*Compute expected results*/
+            UDD expected_result = std::accumulate(count_itr_begin, count_itr_end, UDDone, mul);
             /*Check the results*/
             EXPECT_EQ( expected_result, sv_result );
             EXPECT_EQ( expected_result, dv_result );
@@ -2193,7 +2236,7 @@ TEST( TransformIterator, InnerProductUDDRoutine)
         std::vector< UDD > stlOut( length );
 
         bolt::cl::plus<UDD> plus;
-        /*UDDmul mul*/
+        //UDDmul mul;
 		UDDminus minus;
 
         add3UDD_resultUDD sqUDD;
