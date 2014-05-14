@@ -130,14 +130,6 @@ struct UDD
       return _result;
     }
 
-	/*UDD operator + (const int &rhs) const
-    {
-      UDD _result;
-      _result.i = this->i + rhs;
-      _result.f = this->f + (float) rhs;
-      return _result;
-    }*/
-
 	UDD operator * (const UDD &rhs) const
     {
       UDD _result;
@@ -630,7 +622,7 @@ TEST( TransformIterator, FirstTest)
     }
 }
 
-#if 0
+//#if 0
 TEST( TransformIterator, UDDTest)
 {
     {
@@ -1276,7 +1268,7 @@ TEST( TransformIterator, InclusiveTransformScanUDDRoutine)
         global_id = 0;
 
 
-		{/*Test case when input is trf Iterator and return type is int*/
+		{/*Test case when input is trf Iterator and return type of UDD is int*/
             bolt::cl::transform_inclusive_scan(tsv_trf_begin1, tsv_trf_end1, svOutVec.begin(), nI2_int, addI2_int);
             bolt::cl::transform_inclusive_scan(tdv_trf_begin1, tdv_trf_end1, dvOutVec.begin(), nI2_int, addI2_int);
             /*Compute expected results*/
@@ -4918,7 +4910,7 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
 }
 
 
-#endif
+//#endif
 //BUG 399572
 
 BOLT_FUNCTOR(UDD_trans,
