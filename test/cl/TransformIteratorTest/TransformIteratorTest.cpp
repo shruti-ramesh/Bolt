@@ -4987,18 +4987,27 @@ TEST( TransformIterator, UDDInclusiveScanRoutine)
 		UDD init;
 		init.i=0, init.f=0.0f;
 
+		squareUDD_result_int sq_int;
+#if 0
+		bolt::cl::plus<int> addI2_int;
+#endif
         typedef std::vector< UDD >::const_iterator                                                   sv_itr;
         typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
         typedef bolt::BCKND::counting_iterator< UDD >                                                counting_itr;
         typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
         typedef bolt::BCKND::transform_iterator< UDDadd_3, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
         typedef bolt::BCKND::transform_iterator< UDDadd_3, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
-        //typedef bolt::BCKND::transform_iterator< add_4, std::vector< UDD >::const_iterator>          sv_trf_itr_add4;
-       // typedef bolt::BCKND::transform_iterator< add_4, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add4;    
+          
+		typedef bolt::BCKND::transform_iterator< squareUDD_result_int, std::vector< UDD >::const_iterator>          tsv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_result_int, bolt::BCKND::device_vector< UDD >::iterator> tdv_trf_itr_add3;
+
         /*Create Iterators*/
         sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
-
         dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+
+		tsv_trf_itr_add3 tsv_trf_begin1 (svIn1Vec.begin(), sq_int), tsv_trf_end1 (svIn1Vec.end(), sq_int);
+        tdv_trf_itr_add3 tdv_trf_begin1 (dvIn1Vec.begin(), sq_int), tdv_trf_end1 (dvIn1Vec.end(), sq_int);
+
 
         counting_itr count_itr_begin(init);
         counting_itr count_itr_end = count_itr_begin + length;
@@ -5011,6 +5020,19 @@ TEST( TransformIterator, UDDInclusiveScanRoutine)
         global_id = 0;
         bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), genUDD);
         global_id = 0;
+
+#if 0
+		{/*Test case when input is trf Iterato and UDd is returning an intr*/
+            bolt::cl::inclusive_scan(tsv_trf_begin1, tsv_trf_end1, svOutVec.begin(), addI2_int);
+            bolt::cl::inclusive_scan(tdv_trf_begin1, tdv_trf_end1, dvOutVec.begin(), addI2_int);
+            /*Compute expected results*/
+            std::partial_sum(tsv_trf_begin1, tsv_trf_end1, stlOut.begin(), addI2_int);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+
+#endif
         {/*Test case when input is trf Iterator*/
             bolt::cl::inclusive_scan(sv_trf_begin1, sv_trf_end1, svOutVec.begin(), addI2);
             bolt::cl::inclusive_scan(dv_trf_begin1, dv_trf_end1, dvOutVec.begin(), addI2);
@@ -5078,6 +5100,12 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
 		bolt::cl::equal_to<UDD> equal_to;
         bolt::cl::plus<UDD> addI2;
 
+		squareUDD_result_int sq_int;
+#if 0
+		bolt::cl::equal_to<int> equal_to_int;
+        bolt::cl::plus<int> addI2_int;
+#endif
+
         gen_input_udd gen;
         typedef std::vector< UDD >::const_iterator                                                   sv_itr;
         typedef bolt::BCKND::device_vector< UDD >::iterator                                          dv_itr;
@@ -5085,8 +5113,11 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
         typedef bolt::BCKND::constant_iterator< UDD >                                                constant_itr;
         typedef bolt::BCKND::transform_iterator< UDDadd_3, std::vector< UDD >::const_iterator>          sv_trf_itr_add3;
         typedef bolt::BCKND::transform_iterator< UDDadd_3, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add3;
-        //typedef bolt::BCKND::transform_iterator< add_4, std::vector< UDD >::const_iterator>          sv_trf_itr_add4;
-        //typedef bolt::BCKND::transform_iterator< add_4, bolt::BCKND::device_vector< UDD >::iterator> dv_trf_itr_add4;    
+
+		typedef bolt::BCKND::transform_iterator< squareUDD_result_int, std::vector< UDD >::const_iterator>          tsv_trf_itr_add3;
+        typedef bolt::BCKND::transform_iterator< squareUDD_result_int, bolt::BCKND::device_vector< UDD >::iterator> tdv_trf_itr_add3;
+
+
         /*Create Iterators*/
 			UDD Zero;
 			Zero.i=0, Zero.f=0.0f; 
@@ -5114,7 +5145,12 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
 		sv_trf_itr_add3 sv_trf_begin2 (svIn2Vec.begin(), add3), sv_trf_end2 (svIn2Vec.end(), add3);
         dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
         dv_trf_itr_add3 dv_trf_begin2 (dvIn2Vec.begin(), add3), dv_trf_end2 (dvIn2Vec.end(), add3);
-		 
+
+		tsv_trf_itr_add3 tsv_trf_begin1 (svIn1Vec.begin(), sq_int), tsv_trf_end1 (svIn1Vec.end(), sq_int);
+		tdv_trf_itr_add3 tdv_trf_begin1 (dvIn1Vec.begin(), sq_int), tdv_trf_end1 (dvIn1Vec.end(), sq_int);
+		tsv_trf_itr_add3 tsv_trf_begin2 (svIn2Vec.begin(), sq_int), tsv_trf_end2 (svIn2Vec.end(), sq_int);
+		tdv_trf_itr_add3 tdv_trf_begin2 (dvIn2Vec.begin(), sq_int), tdv_trf_end2 (dvIn2Vec.end(), sq_int);
+
 		UDD temp;
 		temp.i=1, temp.f=2.5f;
 
@@ -5131,7 +5167,18 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
         std::generate(svIn2Vec.begin(), svIn2Vec.end(), gen);
         global_id = 0;
         bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), gen);
+#if 0
+		{/*Test case when inputs are trf Iterators and return type of UDD is int*/
+            bolt::cl::inclusive_scan_by_key(tsv_trf_begin1, tsv_trf_end1, tsv_trf_begin2, svOutVec.begin(), equal_to_int, addI2_int);
+            bolt::cl::inclusive_scan_by_key(tdv_trf_begin1, tdv_trf_end1, tdv_trf_begin2, dvOutVec.begin(), equal_to_int, addI2_int);
+            /*Compute expected results*/
 
+            bolt::cl::inclusive_scan_by_key(tsv_trf_begin1, tsv_trf_end1, tsv_trf_begin2, stlOut.begin(), equal_to_int, addI2_int);
+            /*Check the results*/
+            cmpArrays(svOutVec, stlOut, length);
+            cmpArrays(dvOutVec, stlOut, length);
+        }
+#endif
         {/*Test case when inputs are trf Iterator*/
             bolt::cl::inclusive_scan_by_key(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, svOutVec.begin(), equal_to, addI2);
             bolt::cl::inclusive_scan_by_key(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec.begin(), equal_to, addI2);
