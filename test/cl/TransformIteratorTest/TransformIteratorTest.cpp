@@ -4914,7 +4914,7 @@ TEST( TransformIterator, InclusiveScanbykeyRoutine)
             bolt::cl::inclusive_scan_by_key(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec.begin(), equal_to, addI2);
             /*Compute expected results*/
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, sv_trf_begin1, sv_trf_end1, sv_trf_begin2, stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -4926,7 +4926,7 @@ TEST( TransformIterator, InclusiveScanbykeyRoutine)
             bolt::cl::inclusive_scan_by_key(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvOutVec.begin(), equal_to, addI2);
             /*Compute expected results*/
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, svIn1Vec.begin(), svIn1Vec.end(),  svIn2Vec.begin(), stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -4940,7 +4940,7 @@ TEST( TransformIterator, InclusiveScanbykeyRoutine)
             std::vector<int> const_vector(length,1);
 
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, svIn1Vec.begin(), svIn1Vec.end(), const_vector.begin(), stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -4956,7 +4956,7 @@ TEST( TransformIterator, InclusiveScanbykeyRoutine)
                 count_vector[index] = index;
 
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, svIn1Vec.begin(), svIn1Vec.end(), count_vector.begin(), stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -5184,7 +5184,7 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
             bolt::cl::inclusive_scan_by_key(dv_trf_begin1, dv_trf_end1, dv_trf_begin2, dvOutVec.begin(), equal_to, addI2);
             /*Compute expected results*/
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, sv_trf_begin1, sv_trf_end1, sv_trf_begin2, stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -5196,7 +5196,7 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
             bolt::cl::inclusive_scan_by_key(dvIn1Vec.begin(), dvIn1Vec.end(), dvIn2Vec.begin(), dvOutVec.begin(), equal_to, addI2);
             /*Compute expected results*/
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, svIn1Vec.begin(), svIn1Vec.end(),  svIn2Vec.begin(), stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -5210,7 +5210,7 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
             std::vector<UDD> const_vector(const_itr_begin, const_itr_end);
 
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, svIn1Vec.begin(), svIn1Vec.end(), const_vector.begin(), stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -5226,7 +5226,7 @@ TEST( TransformIterator, UDDInclusiveScanbykeyRoutine)
                 count_vector[index] = index;*/
 			std::vector<UDD> count_vector(count_itr_begin , count_itr_end);
 			bolt::cl::control ctl = bolt::cl::control::getDefault( );
-			ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
+			//ctl.setForceRunMode(bolt::cl::control::SerialCpu); 
 
             bolt::cl::inclusive_scan_by_key(ctl, svIn1Vec.begin(), svIn1Vec.end(), count_vector.begin(), stlOut.begin(), equal_to, addI2);
             /*Check the results*/
@@ -5501,6 +5501,12 @@ int _tmain(int argc, _TCHAR* argv[])
     std::cout << "Device under test : " << strDeviceName << std::endl;
 
     int retVal = RUN_ALL_TESTS( );
+
+    bolt::cl::control::getDefault( ).setForceRunMode(bolt::cl::control::SerialCpu); 
+	retVal = RUN_ALL_TESTS( );
+
+    bolt::cl::control::getDefault( ).setForceRunMode(bolt::cl::control::MultiCoreCpu); 
+	retVal = RUN_ALL_TESTS( );
 
     //  Reflection code to inspect how many tests failed in gTest
     ::testing::UnitTest& unitTest = *::testing::UnitTest::GetInstance( );
