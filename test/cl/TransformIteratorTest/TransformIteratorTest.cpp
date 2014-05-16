@@ -122,6 +122,14 @@ struct UDD
       return _result;
     }
 
+	UDD operator = (const UDD &rhs) 
+    {
+      UDD _result;
+      _result.i = rhs.i;
+      _result.f = rhs.f;
+      return _result;
+    }
+
 	UDD operator + (const UDD &rhs) const
     {
       UDD _result;
@@ -586,7 +594,7 @@ TEST( TransformIterator, FirstTest)
         const int length = 1<<10;
         std::vector< int > svInVec( length );
         std::vector< int > svOutVec( length );
-        bolt::BCKND::device_vector< int > dvInVec( length );
+        //bolt::BCKND::device_vector< int > dvInVec( length );
         bolt::BCKND::device_vector< int > dvOutVec( length );
 
         square sq;
@@ -598,11 +606,14 @@ TEST( TransformIterator, FirstTest)
     
         /*Create Iterators*/
         sv_trf_itr sv_trf_begin (svInVec.begin(), sq), sv_trf_end (svInVec.end(), sq);
-        dv_trf_itr dv_trf_begin (dvInVec.begin(), sq), dv_trf_end (dvInVec.end(), sq);
+        //dv_trf_itr dv_trf_begin (dvInVec.begin(), sq), dv_trf_end (dvInVec.end(), sq);
     
         /*Generate inputs*/
         std::generate(svInVec.begin(), svInVec.end(), gen);    
-        bolt::BCKND::generate(dvInVec.begin(), dvInVec.end(), gen);
+        //bolt::BCKND::generate(dvInVec.begin(), dvInVec.end(), gen);
+
+		bolt::BCKND::device_vector< int > dvInVec(svInVec.begin(), svInVec.end());
+		dv_trf_itr dv_trf_begin (dvInVec.begin(), sq), dv_trf_end (dvInVec.end(), sq);
 
         sv_trf_itr::difference_type dist1 = bolt::cl::distance(sv_trf_begin, sv_trf_end);
         sv_trf_itr::difference_type dist2 = bolt::cl::distance(dv_trf_begin, dv_trf_end );
@@ -628,7 +639,7 @@ TEST( TransformIterator, UDDTest)
         const int length = 1<<10;
         std::vector< UDD > svInVec( length );
         std::vector< UDD > svOutVec( length );
-        bolt::BCKND::device_vector< UDD > dvInVec( length );
+        //bolt::BCKND::device_vector< UDD > dvInVec( length );
         bolt::BCKND::device_vector< UDD > dvOutVec( length );
 
         squareUDD_result_float sqUDD;
@@ -642,11 +653,13 @@ TEST( TransformIterator, UDDTest)
         /*Create Iterators*/
         sv_trf_itr sv_trf_begin (svInVec.begin(), sqUDD), sv_trf_end (svInVec.begin(), sqUDD);
 
-        dv_trf_itr dv_trf_begin (dvInVec.begin(), sqUDD), dv_trf_end (dvInVec.begin(), sqUDD);
+        //dv_trf_itr dv_trf_begin (dvInVec.begin(), sqUDD), dv_trf_end (dvInVec.begin(), sqUDD);
  
         /*Generate inputs*/
         std::generate(svInVec.begin(), svInVec.end(), genUDD);
-        bolt::BCKND::generate(dvInVec.begin(), dvInVec.end(), genUDD);
+        //bolt::BCKND::generate(dvInVec.begin(), dvInVec.end(), genUDD);
+		bolt::BCKND::device_vector< UDD > dvInVec(svInVec.begin(), svInVec.end());
+		dv_trf_itr dv_trf_begin (dvInVec.begin(), sqUDD), dv_trf_end (dvInVec.begin(), sqUDD);
 
         int dist1 = static_cast< int >(std::distance(sv_trf_begin, sv_trf_end));
         int dist2 = static_cast< int >(std::distance(dv_trf_begin, dv_trf_end));
@@ -1175,7 +1188,7 @@ TEST( TransformIterator, InclusiveTransformScanRoutine)
         std::vector< int > svIn1Vec( length );
         std::vector< int > svOutVec( length );
         std::vector< int > stlOut( length );
-        bolt::BCKND::device_vector< int > dvIn1Vec( length );
+        //bolt::BCKND::device_vector< int > dvIn1Vec( length );
         bolt::BCKND::device_vector< int > dvOutVec( length );
 
         add_3 add3;
@@ -1194,9 +1207,9 @@ TEST( TransformIterator, InclusiveTransformScanRoutine)
         typedef bolt::BCKND::transform_iterator< add_4, std::vector< int >::const_iterator>          sv_trf_itr_add4;
         typedef bolt::BCKND::transform_iterator< add_4, bolt::BCKND::device_vector< int >::iterator> dv_trf_itr_add4;    
         /*Create Iterators*/
-        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
 
-        dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+        sv_trf_itr_add3 sv_trf_begin1 (svIn1Vec.begin(), add3), sv_trf_end1 (svIn1Vec.end(), add3);
+        //dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
 
         counting_itr count_itr_begin(0);
         counting_itr count_itr_end = count_itr_begin + length;
@@ -1206,9 +1219,12 @@ TEST( TransformIterator, InclusiveTransformScanRoutine)
         /*Generate inputs*/
         global_id = 0;
         std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
+        //global_id = 0;
+        //bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), gen);
+		bolt::BCKND::device_vector< int > dvIn1Vec(svIn1Vec.begin(), svIn1Vec.end());
         global_id = 0;
-        bolt::BCKND::generate(dvIn1Vec.begin(), dvIn1Vec.end(), gen);
-        global_id = 0;
+		dv_trf_itr_add3 dv_trf_begin1 (dvIn1Vec.begin(), add3), dv_trf_end1 (dvIn1Vec.end(), add3);
+
         {/*Test case when inputs are trf Iterators*/
             bolt::cl::transform_inclusive_scan(sv_trf_begin1, sv_trf_end1, svOutVec.begin(), nI2, addI2);
             bolt::cl::transform_inclusive_scan(dv_trf_begin1, dv_trf_end1, dvOutVec.begin(), nI2, addI2);
@@ -5500,13 +5516,16 @@ int _tmain(int argc, _TCHAR* argv[])
 
     std::cout << "Device under test : " << strDeviceName << std::endl;
 
+	global_id = 0;
     int retVal = RUN_ALL_TESTS( );
 
+	global_id = 0;
     bolt::cl::control::getDefault( ).setForceRunMode(bolt::cl::control::SerialCpu); 
-	retVal = RUN_ALL_TESTS( );
+	int retVal = RUN_ALL_TESTS( );
 
-    bolt::cl::control::getDefault( ).setForceRunMode(bolt::cl::control::MultiCoreCpu); 
-	retVal = RUN_ALL_TESTS( );
+	//global_id = 0;
+    //bolt::cl::control::getDefault( ).setForceRunMode(bolt::cl::control::MultiCoreCpu); 
+	//retVal = RUN_ALL_TESTS( );
 
     //  Reflection code to inspect how many tests failed in gTest
     ::testing::UnitTest& unitTest = *::testing::UnitTest::GetInstance( );
