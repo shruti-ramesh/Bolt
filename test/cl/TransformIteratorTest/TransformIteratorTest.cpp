@@ -1006,16 +1006,15 @@ TEST( TransformIterator, BinaryTransformUDDRoutine)
         std::vector< UDD > svIn1Vec( length );
         std::vector< UDD > svIn2Vec( length );
         std::vector< UDD > svOutVec( length );
+        std::vector< int > tsvOutVec( length );
         std::vector< UDD > stlOut( length );
+        std::vector< int > tstlOut( length );
         bolt::BCKND::device_vector< UDD > dvIn1Vec( length );
         bolt::BCKND::device_vector< UDD > dvIn2Vec( length );
         bolt::BCKND::device_vector< UDD > dvOutVec( length );
+        bolt::BCKND::device_vector< int > tdvOutVec( length );
 
         bolt::cl::plus<UDD> plus;
-#if 0
-		bolt::cl::plus<int> plus_int;
-#endif
-		//UDDmul plus;
 
 		cubeUDD_resultUDD cbUDD;
         gen_input_udd genUDD;
@@ -1072,17 +1071,18 @@ TEST( TransformIterator, BinaryTransformUDDRoutine)
         bolt::BCKND::generate(dvIn2Vec.begin(), dvIn2Vec.end(), genUDD);
         global_id = 0;
 
-#if 0
+
 		{/*Test case when both inputs are trf Iterators and Return type of UDD is int*/
-            bolt::cl::transform(tsv_trf_begin1, tsv_trf_end1, tsv_trf_begin2, svOutVec.begin(), plus_int);
-            bolt::cl::transform(tdv_trf_begin1, tdv_trf_end1, tdv_trf_begin2, dvOutVec.begin(), plus_int);
+            bolt::cl::plus<int> plus_int;
+            bolt::cl::transform(tsv_trf_begin1, tsv_trf_end1, tsv_trf_begin2, tsvOutVec.begin(), plus_int);
+            bolt::cl::transform(tdv_trf_begin1, tdv_trf_end1, tdv_trf_begin2, tdvOutVec.begin(), plus_int);
             /*Compute expected results*/
-            std::transform(tsv_trf_begin1, tsv_trf_end1, tsv_trf_begin2, stlOut.begin(), plus_int);
+            std::transform(tsv_trf_begin1, tsv_trf_end1, tsv_trf_begin2, tstlOut.begin(), plus_int);
             /*Check the results*/
-            cmpArrays(svOutVec, stlOut, length);
-            cmpArrays(dvOutVec, stlOut, length);
+            cmpArrays(tsvOutVec, tstlOut, length);
+            cmpArrays(tdvOutVec, tstlOut, length);
         }
-#endif
+
 
         {/*Test case when both inputs are trf Iterators*/
             bolt::cl::transform(sv_trf_begin1, sv_trf_end1, sv_trf_begin2, svOutVec.begin(), plus);
