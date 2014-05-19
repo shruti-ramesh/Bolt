@@ -5449,7 +5449,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
     std::cout << "Device under test : " << strDeviceName << std::endl;
 
-    int retVal;/* = RUN_ALL_TESTS( );*/
+    int retVal = RUN_ALL_TESTS( );
 
     bolt::cl::control::getDefault( ).setForceRunMode(bolt::cl::control::SerialCpu); 
     retVal = RUN_ALL_TESTS( );
