@@ -94,6 +94,7 @@ namespace amp {
          typedef typename iterator_traits<element_type>::value_type value_type;
          typedef typename iterator_traits<key_type>::value_type index_type;
          typedef concurrency::array_view< value_type > arrayview_type;
+         typedef typename std::iterator_traits<element_type>::value_type * pointer;
 
 
 
