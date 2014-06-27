@@ -27,6 +27,8 @@
 
 #include "common/stdafx.h"
 
+#include "bolt/amp/for_each.h"
+#include "bolt/amp/generate.h"
 #include "bolt/amp/copy.h"
 #include "bolt/amp/count.h"
 #include "bolt/amp/gather.h"
@@ -51,7 +53,7 @@
 #include "bolt/amp/iterator/permutation_iterator.h"
 #include <boost/range/algorithm/transform.hpp>
 #include <boost/iterator/permutation_iterator.hpp>
-
+#include <boost/iterator/zip_iterator.hpp>
 
 namespace gold
 {
@@ -182,6 +184,122 @@ namespace gold
     }
 
 };
+
+struct gen_input
+ {
+
+    int operator() () restrict (cpu,amp) 
+	{ 
+		return 10; 
+	}
+
+    typedef int result_type;
+ };
+
+struct UDD2
+{
+    int i;
+    float f;
+  
+    bool operator == (const UDD2& other) const restrict(amp,cpu)
+	{
+        return ((i == other.i) && (f == other.f));
+    }
+
+	bool operator != (const UDD2& other) const restrict(amp,cpu)
+	{
+        return ((i != other.i) || (f != other.f));
+    }
+
+	UDD2 operator ++ () 
+    {
+      UDD2 _result;
+      _result.i = i + 1;
+      _result.f = f + 1.0f;
+      return _result;
+    }
+
+	UDD2 operator = (const int rhs) const restrict(amp,cpu)
+    {
+      UDD2 _result;
+      _result.i = i + rhs;
+      _result.f = f + (float)rhs;
+      return _result;
+    }
+
+	UDD2 operator = (const UDD2 &rhs) const restrict(amp,cpu)
+    {
+      UDD2 _result;
+      _result.i = i + rhs.i;
+      _result.f = f + rhs.f;
+      return _result;
+    }
+
+	UDD2 operator + (const UDD2 &rhs) const restrict(amp,cpu)
+    {
+      UDD2 _result;
+      _result.i = this->i + rhs.i;
+      _result.f = this->f + rhs.f;
+      return _result;
+    }
+
+	UDD2 operator * (const UDD2 &rhs) const restrict(amp,cpu)
+    {
+      UDD2 _result;
+      _result.i = this->i * rhs.i;
+      _result.f = this->f * rhs.f;
+      return _result;
+    }
+
+	UDD2 operator + (const int rhs)  restrict(amp,cpu)
+    {
+      UDD2 _result;
+      _result.i = i = i + rhs;
+      _result.f = f = f + (float)rhs;
+      return _result;
+    }
+
+	UDD2 operator-() const restrict(amp,cpu)
+    {
+        UDD2 r;
+        r.i = -i;
+        r.f = -f;
+        return r;
+    }
+
+    UDD2() restrict(amp,cpu)
+        : i(0), f(0) { }
+    UDD2(int _in) restrict(amp,cpu)
+        : i(_in), f((float)(_in+2) ){ }
+};
+
+
+struct gen_input_udd
+{
+       UDD2 operator() ()  const restrict ( cpu, amp )
+       { 
+            int i=8;
+            UDD2 temp;
+            temp.i = i;
+            temp.f = (float)i;
+            return temp; 
+        }
+        typedef UDD2 result_type;
+};
+
+struct gen_input_udd2
+{
+        UDD2 operator() ()  const  restrict ( cpu, amp )
+       { 
+            int i=7;
+            UDD2 temp;
+            temp.i = i*2;
+            temp.f = (float)i*2;
+            return temp; 
+        }
+        typedef UDD2 result_type;
+};
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //  Transform tests
@@ -1036,6 +1154,528 @@ TEST(sanity_boost, PermutationIterator_with_boost_amp)
   std::cout << "\n";
 }
 
+struct zip_func :
+  public std::unary_function<const boost::tuple<const double&, const int&>&, void>
+{
+  void operator()(const boost::tuple<const int&, const int&>& t) const 
+  {
+    std::cout << boost::get<0>(t)<< ", " << boost::get<1>(t) << std::endl;
+  }
+
+};
+
+
+TEST(AMPIterators, ZipForEachTest)
+{
+    int n_input[10] =  {0,1,2,3,4,5,6,7,8,9};
+	//double n_input2[10] =  {9.8,8.5,7.0,6.2,5.1,4.3,3.1,2.7,1.0,0.0};
+	int n_input2[10] = {9,8,7,6,5,4,3,2,1,0};
+
+    std::vector<int> input ( n_input, n_input + 10 );
+	std::vector<int> input2 ( n_input2, n_input2 + 10 );
+
+    bolt::amp::device_vector<int> dinput( input.begin( ), input.end( ) );
+	bolt::amp::device_vector<int> dinput2( input2.begin( ), input2.end( ) );
+
+    std::for_each( boost::make_zip_iterator( boost::make_tuple (input.begin( ), input2.begin( )) ),
+               boost::make_zip_iterator( boost::make_tuple (input.end( ), input2.end( ) ) ),
+               zip_func() /*[]( boost::tuple<int, int> const& tup ) {
+            std::cout 
+              << boost::get<0>(tup) 
+              << ", " 
+              << boost::get<1>(tup) 
+              << std::endl;
+        }*/
+ );
+
+   /* bolt::amp::for_each( bolt::amp::make_zip_iterator( boost::make_tuple ( dinput.begin( ), dinput2.begin( ) )),
+                    bolt::amp::make_zip_iterator( boost::make_tuple ( dinput.end( ), dinput2.end( ) ),
+                     zip_func());
+*/
+
+    cmpArrays(input, dinput);
+	cmpArrays(input2, dinput2);
+}
+
+TEST(AMPIterators, ZipForEach_nTest)
+{
+    int n_input[10] =  {0,1,2,3,4,5,6,7,8,9};
+	int n_input2[10] = {9,8,7,6,5,4,3,2,1,0};
+
+	int n = rand()%10;
+
+    std::vector<int> input ( n_input, n_input + 10 );
+	std::vector<int> input2 ( n_input2, n_input2 + 10 );
+
+    bolt::amp::device_vector<int> dinput( input.begin( ), input.end( ) );
+	bolt::amp::device_vector<int> dinput2( input2.begin( ), input2.end( ) );
+
+    std::for_each( boost::make_zip_iterator( boost::make_tuple (input.begin( ), input2.begin( )) ),
+               boost::make_zip_iterator( boost::make_tuple (input.begin( ), input2.begin( )) ) + n,
+               zip_func() );
+
+   /* bolt::amp::for_each_n( bolt::amp::make_zip_iterator( boost::make_tuple ( dinput.begin( ), dinput2.begin( ) )),
+                     n,
+                     zip_func());
+   */
+
+    cmpArrays(input, dinput);
+	cmpArrays(input2, dinput2);
+}
+
+TEST(AMPIterators, PermutationForEachTest)
+{
+    int n_input[10] =  {0,1,2,3,4,5,6,7,8,9};
+	int n_map[10] =  {9,8,7,6,5,4,3,2,1,0};
+    std::vector<int> input ( n_input, n_input + 10 );
+	std::vector<int> map ( n_map, n_map + 10 );
+
+    bolt::amp::device_vector<int> dinput( input.begin( ), input.end( ) );
+	bolt::amp::device_vector<int> dmap( map.begin( ), map.end( ) );
+
+    std::for_each( boost::make_permutation_iterator( input.begin( ), map.begin( ) ),
+               boost::make_permutation_iterator( input.end( ), map.end( )  ),
+               std::negate<int>() );
+
+    bolt::amp::for_each( bolt::amp::make_permutation_iterator( dinput.begin( ), dmap.begin( ) ),
+                     bolt::amp::make_permutation_iterator( dinput.end( ), dmap.end( ) ),
+                     bolt::amp::negate<int>());
+
+
+    cmpArrays(input, dinput);
+}
+
+TEST(AMPIterators,  PermutationForEachUDDTest)
+{
+
+    typedef UDD2 etype;
+    etype elements[10];
+
+    size_t view_size = 10;
+
+    std::iota(elements, elements+10, 1000);
+
+    bolt::amp::device_vector<UDD2, concurrency::array_view> dve(elements, elements + 10);
+
+    std::vector<UDD2> el(elements, elements+10);
+
+	std::vector<int> map(10);
+	for(int i=0;i<10;i++)
+		map[i]=i;
+
+	bolt::amp::device_vector<int> dmap( map.begin( ), map.end( ) );
+
+    auto dvebegin = dve.begin( );
+    auto dveend = dve.end( );
+
+    std::for_each( boost::make_permutation_iterator(el.begin( ), map.begin()), 
+                    boost::make_permutation_iterator(el.end( ), map.end() ),
+                    std::negate<UDD2>()
+                    );
+
+    bolt::amp::for_each( bolt::amp::make_permutation_iterator(dvebegin, dmap.begin()), 
+                          bolt::amp::make_permutation_iterator(dveend, dmap.end()),
+                          bolt::amp::negate<UDD2>()
+                          );
+
+    cmpArrays(el,dvebegin);
+
+}
+
+
+TEST( PermutationIterator, ForEachRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< int > svIn1Vec( length );
+
+        /*Generate inputs*/
+        gen_input gen;
+
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
+        bolt::amp::device_vector< int > dvIn1Vec( svIn1Vec.begin(), svIn1Vec.end() );
+
+		std::vector<int> map(length);
+	    for(int i=0;i<length;i++)
+		  map[i]= length-1-i;
+		bolt::amp::device_vector<int> dmap( map.begin( ), map.end( ) );
+
+        typedef std::vector< int >::const_iterator                                                   sv_itr;
+        typedef bolt::amp::device_vector< int >::iterator                                            dv_itr;
+        typedef bolt::amp::counting_iterator< int >                                                  counting_itr;
+        typedef bolt::amp::constant_iterator< int >                                                  constant_itr;
+
+
+		typedef bolt::amp::permutation_iterator< std::vector<int>::iterator,
+                                             std::vector<int>::iterator> sv_trf_itr;
+		typedef bolt::amp::permutation_iterator< bolt::amp::device_vector<int>::iterator,
+                                             bolt::amp::device_vector<int>::iterator> dv_trf_itr;
+
+  
+        /*Create Iterators*/
+
+		//sv_trf_itr sv_trf_begin1 = bolt::amp::make_permutation_iterator(svIn1Vec.begin(), map.begin());
+		//sv_trf_itr sv_trf_end1 = bolt::amp::make_permutation_iterator(svIn1Vec.end(), map.end());
+
+		dv_trf_itr dv_trf_begin1 = bolt::amp::make_permutation_iterator(dvIn1Vec.begin(), dmap.end());
+		dv_trf_itr dv_trf_end1 = bolt::amp::make_permutation_iterator(dvIn1Vec.end(), dmap.end());
+
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(1);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+		
+        {/*Test case when inputs are Permutation Iterators*/
+		    std::vector<int> std_input(dv_trf_begin1, dv_trf_end1);
+
+            //bolt::amp::for_each(sv_trf_begin1, sv_trf_end1, bolt::amp::negate<int>());
+			//std::vector<int> bolt_output_1(sv_trf_begin1, sv_trf_end1);
+
+            bolt::amp::for_each(dv_trf_begin1, dv_trf_end1, bolt::amp::negate<int>());
+			std::vector<int> bolt_output(dv_trf_begin1, dv_trf_end1);
+
+            /*Compute expected results*/
+            std::for_each(std_input.begin(), std_input.end(), std::negate<int>() );
+
+            /*Check the results*/
+            //cmpArrays(bolt_output1, std_input);
+            cmpArrays(bolt_output, std_input);
+        }
+        {/*Test case when input is randomAccessIterator */
+			std::vector<int> std_input(dvIn1Vec.begin(), dvIn1Vec.end());
+            bolt::amp::for_each(svIn1Vec.begin(), svIn1Vec.end(), bolt::amp::negate<int>());
+            bolt::amp::for_each(dvIn1Vec.begin(), dvIn1Vec.end(), bolt::amp::negate<int>());
+            /*Compute expected results*/
+            std::for_each(std_input.begin(), std_input.end(), std::negate<int>());
+            /*Check the results*/
+            cmpArrays(svIn1Vec, std_input);
+            cmpArrays(dvIn1Vec, std_input);
+        }
+
+		//No Compilation Error. But no Output is generated!
+   //     {/*Test case when the input is constant iterator  */
+   //         bolt::amp::for_each(const_itr_begin, const_itr_end,  bolt::amp::negate<int>());
+			//std::vector<int> bolt_out(const_itr_begin, const_itr_end);
+   //         /*Compute expected results*/
+   //         std::vector<int> const_vector(length,1);
+   //         std::for_each(const_vector.begin(), const_vector.end(), std::negate<int>());
+   //         /*Check the results*/
+   //         cmpArrays(bolt_out, const_vector);
+   //     }
+
+        {/*Test case when the input is a counting iterator */
+            bolt::amp::for_each(count_itr_begin, count_itr_end, bolt::amp::negate<int>());
+			std::vector<int> bolt_out(count_itr_begin, count_itr_end);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;
+            std::for_each(count_vector.begin(), count_vector.end(), std::negate<int>());
+            /*Check the results*/
+            cmpArrays(bolt_out, count_vector);
+        }
+    }
+}
+
+
+TEST( PermutationIterator, ForEachUDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD2 > svIn1Vec( length );
+        std::vector< UDD2 > svOutVec( length );
+
+		std::vector<int> map(length);
+	    for(int i=0;i<length;i++)
+		  map[i]= length-1-i;
+		bolt::amp::device_vector<int> dmap( map.begin( ), map.end( ) );
+
+        /*Generate inputs*/
+        gen_input_udd genUDD;
+        bolt::amp::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+
+        bolt::amp::device_vector< UDD2 > dvIn1Vec( svIn1Vec.begin(), svIn1Vec.end() );
+
+        typedef std::vector< UDD2>::const_iterator                                                     sv_itr;
+        typedef bolt::amp::device_vector< UDD2 >::iterator                                            dv_itr;
+        typedef bolt::amp::counting_iterator< UDD2 >                                                  counting_itr;
+        typedef bolt::amp::constant_iterator< UDD2 >                                                  constant_itr;
+		typedef bolt::amp::permutation_iterator< std::vector<UDD2>::iterator,
+                                             std::vector<int>::iterator> sv_trf_itr;
+		typedef bolt::amp::permutation_iterator< bolt::amp::device_vector<UDD2>::iterator,
+                                             bolt::amp::device_vector<int>::iterator> dv_trf_itr;
+     
+        /*Create Iterators*/
+
+		//sv_trf_itr sv_trf_begin1 = bolt::amp::make_permutation_iterator(svIn1Vec.begin(), map.begin());
+		//sv_trf_itr sv_trf_end1 = bolt::amp::make_permutation_iterator(svIn1Vec.end(), map.end());
+
+		dv_trf_itr dv_trf_begin1 = bolt::amp::make_permutation_iterator(dvIn1Vec.begin(), dmap.end());
+		dv_trf_itr dv_trf_end1 = bolt::amp::make_permutation_iterator(dvIn1Vec.end(), dmap.end());
+
+		UDD2 temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD2 init;
+		init.i=0, init.f=0.0f;
+
+        counting_itr count_itr_begin(init);
+        counting_itr count_itr_end = count_itr_begin + length;
+
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+        {/*Test case when input is trf Iterator*/
+			std::vector<UDD2> std_input(dv_trf_begin1, dv_trf_end1);
+
+            //bolt::amp::for_each(sv_trf_begin1, sv_trf_end1, bolt::amp::negate<UDD2>());
+            bolt::amp::for_each(dv_trf_begin1, dv_trf_end1, bolt::amp::negate<UDD2>());
+			std::vector<UDD2> temp1_vec(dv_trf_begin1, dv_trf_end1);
+
+            /*Compute expected results*/
+            std::for_each(std_input.begin(), std_input.end(), std::negate<UDD2>());
+            /*Check the results*/
+            //cmpArrays(svOutVec, stlOut);
+            cmpArrays(temp1_vec, std_input);
+        }
+
+
+        {/*Test case when the input is randomAccessIterator */
+			std::vector<UDD2> std_input(svIn1Vec.begin(), svIn1Vec.end());
+            bolt::amp::for_each(svIn1Vec.begin(), svIn1Vec.end(), bolt::amp::negate<UDD2>());
+            bolt::amp::for_each(dvIn1Vec.begin(), dvIn1Vec.end(), bolt::amp::negate<UDD2>());
+            /*Compute expected results*/
+            std::for_each(std_input.begin(), std_input.end(), std::negate<UDD2>());
+            /*Check the results*/
+            cmpArrays(svIn1Vec, std_input);
+            cmpArrays(dvIn1Vec, std_input);
+        }
+
+		//No Compilation Error. But doesnt generate any output!
+   //     {/*Test case when the input is constant iterator  */
+   //         bolt::amp::for_each(const_itr_begin, const_itr_end, bolt::amp::negate<UDD2>());
+			//std::vector<UDD2> bolt_out(const_itr_begin, const_itr_end);
+   //         /*Compute expected results*/
+   //         std::vector<UDD2> const_vector(length,temp);
+   //         std::for_each(const_vector.begin(), const_vector.end(), std::negate<UDD2>());
+   //         /*Check the results*/
+   //         cmpArrays(bolt_out, const_vector);
+   //     }	
+
+        {/*Test case when the input is a counting iterator */
+			std::vector<UDD2> std_out(count_itr_begin, count_itr_end);
+            bolt::amp::for_each(count_itr_begin, count_itr_end, bolt::amp::negate<UDD2>());
+			std::vector<UDD2> bolt_out(count_itr_begin, count_itr_end);
+            /*Compute expected results*/
+            std::for_each(std_out.begin(), std_out.end(), std::negate<UDD2>());
+            /*Check the results*/
+            cmpArrays(bolt_out, std_out);
+        }
+    }
+}
+
+TEST( PermutationIterator, ForEach_n_Routine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< int > svIn1Vec( length );
+
+		int n = rand()%length;
+
+        /*Generate inputs*/
+        gen_input gen;
+
+        std::generate(svIn1Vec.begin(), svIn1Vec.end(), gen);
+        bolt::amp::device_vector< int > dvIn1Vec( svIn1Vec.begin(), svIn1Vec.end() );
+
+		std::vector<int> map(length);
+	    for(int i=0;i<length;i++)
+		  map[i]= length-1-i;
+		bolt::amp::device_vector<int> dmap( map.begin( ), map.end( ) );
+
+        typedef std::vector< int >::const_iterator                                                   sv_itr;
+        typedef bolt::amp::device_vector< int >::iterator                                            dv_itr;
+        typedef bolt::amp::counting_iterator< int >                                                  counting_itr;
+        typedef bolt::amp::constant_iterator< int >                                                  constant_itr;
+
+
+		typedef bolt::amp::permutation_iterator< std::vector<int>::iterator,
+                                             std::vector<int>::iterator> sv_trf_itr;
+		typedef bolt::amp::permutation_iterator< bolt::amp::device_vector<int>::iterator,
+                                             bolt::amp::device_vector<int>::iterator> dv_trf_itr;
+
+  
+        /*Create Iterators*/
+
+		//sv_trf_itr sv_trf_begin1 = bolt::amp::make_permutation_iterator(svIn1Vec.begin(), map.begin());
+		//sv_trf_itr sv_trf_end1 = bolt::amp::make_permutation_iterator(svIn1Vec.end(), map.end());
+
+		dv_trf_itr dv_trf_begin1 = bolt::amp::make_permutation_iterator(dvIn1Vec.begin(), dmap.end());
+		dv_trf_itr dv_trf_end1 = bolt::amp::make_permutation_iterator(dvIn1Vec.end(), dmap.end());
+
+
+        counting_itr count_itr_begin(0);
+        counting_itr count_itr_end = count_itr_begin + length;
+        constant_itr const_itr_begin(1);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+		//SEH Exception!
+   //     {/*Test case when inputs are Permutation Iterators*/
+		 //   std::vector<int> std_input(dv_trf_begin1, dv_trf_end1);
+
+   //         //bolt::amp::for_each(sv_trf_begin1, sv_trf_end1, bolt::amp::negate<int>());
+			////std::vector<int> bolt_output_1(sv_trf_begin1, sv_trf_end1);
+
+   //         bolt::amp::for_each_n(dv_trf_begin1, n, bolt::amp::negate<int>());
+			//std::vector<int> bolt_output(dv_trf_begin1, dv_trf_end1);
+
+   //         /*Compute expected results*/
+   //         std::for_each(std_input.begin(), std_input.begin() + n, std::negate<int>() );
+
+   //         /*Check the results*/
+   //         //cmpArrays(bolt_output1, std_input);
+   //         cmpArrays(bolt_output, std_input);
+   //     }
+
+        {/*Test case when input is randomAccessIterator */
+			std::vector<int> std_input(dvIn1Vec.begin(), dvIn1Vec.end());
+            bolt::amp::for_each_n(svIn1Vec.begin(), n, bolt::amp::negate<int>());
+            bolt::amp::for_each_n(dvIn1Vec.begin(), n, bolt::amp::negate<int>());
+            /*Compute expected results*/
+            std::for_each(std_input.begin(), std_input.begin() + n, std::negate<int>());
+            /*Check the results*/
+            cmpArrays(svIn1Vec, std_input);
+            cmpArrays(dvIn1Vec, std_input);
+        }
+
+		//No Compilation Error. But no Output is generated!
+   //     {/*Test case when the input is constant iterator  */
+   //         bolt::amp::for_each_n(const_itr_begin, n,  bolt::amp::negate<int>());
+			//std::vector<int> bolt_out(const_itr_begin, const_itr_end);
+   //         /*Compute expected results*/
+   //         std::vector<int> const_vector(length,1);
+   //         std::for_each(const_vector.begin(), const_vector.begin() + n, std::negate<int>());
+   //         /*Check the results*/
+   //         cmpArrays(bolt_out, const_vector);
+   //     }
+
+        {/*Test case when the input is a counting iterator */
+            bolt::amp::for_each_n(count_itr_begin, n, bolt::amp::negate<int>());
+			std::vector<int> bolt_out(count_itr_begin, count_itr_end);
+            /*Compute expected results*/
+            std::vector<int> count_vector(length);
+            for (int index=0;index<length;index++)
+                count_vector[index] = index;
+            std::for_each(count_vector.begin(), count_vector.begin() + n, std::negate<int>());
+            /*Check the results*/
+            cmpArrays(bolt_out, count_vector);
+        }
+
+    }
+
+}
+
+
+TEST( PermutationIterator, ForEach_n_UDDRoutine)
+{
+    {
+        const int length = 1<<10;
+        std::vector< UDD2 > svIn1Vec( length );
+        std::vector< UDD2 > svOutVec( length );
+
+		int n = rand()%length;
+
+		std::vector<int> map(length);
+	    for(int i=0;i<length;i++)
+		  map[i]= length-1-i;
+		bolt::amp::device_vector<int> dmap( map.begin( ), map.end( ) );
+
+        /*Generate inputs*/
+        gen_input_udd genUDD;
+        bolt::amp::generate(svIn1Vec.begin(), svIn1Vec.end(), genUDD);
+
+        bolt::amp::device_vector< UDD2 > dvIn1Vec( svIn1Vec.begin(), svIn1Vec.end() );
+
+        typedef std::vector< UDD2>::const_iterator                                                     sv_itr;
+        typedef bolt::amp::device_vector< UDD2 >::iterator                                            dv_itr;
+        typedef bolt::amp::counting_iterator< UDD2 >                                                  counting_itr;
+        typedef bolt::amp::constant_iterator< UDD2 >                                                  constant_itr;
+		typedef bolt::amp::permutation_iterator< std::vector<UDD2>::iterator,
+                                             std::vector<int>::iterator> sv_trf_itr;
+		typedef bolt::amp::permutation_iterator< bolt::amp::device_vector<UDD2>::iterator,
+                                             bolt::amp::device_vector<int>::iterator> dv_trf_itr;
+     
+        /*Create Iterators*/
+
+		//sv_trf_itr sv_trf_begin1 = bolt::amp::make_permutation_iterator(svIn1Vec.begin(), map.begin());
+		//sv_trf_itr sv_trf_end1 = bolt::amp::make_permutation_iterator(svIn1Vec.end(), map.end());
+
+		dv_trf_itr dv_trf_begin1 = bolt::amp::make_permutation_iterator(dvIn1Vec.begin(), dmap.end());
+		dv_trf_itr dv_trf_end1 = bolt::amp::make_permutation_iterator(dvIn1Vec.end(), dmap.end());
+
+		UDD2 temp;
+		temp.i=1, temp.f=2.5f;
+
+		UDD2 init;
+		init.i=0, init.f=0.0f;
+
+        counting_itr count_itr_begin(init);
+        counting_itr count_itr_end = count_itr_begin + length;
+
+        constant_itr const_itr_begin(temp);
+        constant_itr const_itr_end = const_itr_begin + length;
+
+		//SEH Exception!
+   //   {/*Test case when input is trf Iterator*/
+			//std::vector<UDD2> std_input(dv_trf_begin1, dv_trf_end1);
+
+   //         //bolt::amp::for_each_n(sv_trf_begin1, n, bolt::amp::negate<UDD2>());
+   //         bolt::amp::for_each_n(dv_trf_begin1, n, bolt::amp::negate<UDD2>());
+			//std::vector<UDD2> temp1_vec(dv_trf_begin1, dv_trf_end1);
+
+   //         /*Compute expected results*/
+   //         std::for_each(std_input.begin(), std_input.begin() + n, std::negate<UDD2>());
+   //         /*Check the results*/
+   //         //cmpArrays(svOutVec, stlOut);
+   //         cmpArrays(temp1_vec, std_input);
+   //     }
+
+
+        {/*Test case when the input is randomAccessIterator */
+			std::vector<UDD2> std_input(svIn1Vec.begin(), svIn1Vec.end());
+            bolt::amp::for_each_n(svIn1Vec.begin(), n, bolt::amp::negate<UDD2>());
+            bolt::amp::for_each_n(dvIn1Vec.begin(), n, bolt::amp::negate<UDD2>());
+            /*Compute expected results*/
+            std::for_each(std_input.begin(), std_input.begin() + n, std::negate<UDD2>());
+            /*Check the results*/
+            cmpArrays(svIn1Vec, std_input);
+            cmpArrays(dvIn1Vec, std_input);
+        }
+
+		//No Compilation Error. But doesnt generate any output!
+   //     {/*Test case when the input is constant iterator  */
+   //         bolt::amp::for_each_n(const_itr_begin, n, bolt::amp::negate<UDD2>());
+			//std::vector<UDD2> bolt_out(const_itr_begin, const_itr_end);
+   //         /*Compute expected results*/
+   //         std::vector<UDD2> const_vector(length,temp);
+   //         std::for_each(const_vector.begin(), const_vector.begin() + n, std::negate<UDD2>());
+   //         /*Check the results*/
+   //         cmpArrays(bolt_out, const_vector);
+   //     }	
+
+        {/*Test case when the input is a counting iterator */
+			std::vector<UDD2> std_out(count_itr_begin, count_itr_end);
+            bolt::amp::for_each_n(count_itr_begin, n, bolt::amp::negate<UDD2>());
+			std::vector<UDD2> bolt_out(count_itr_begin, count_itr_end);
+            /*Compute expected results*/
+            std::for_each(std_out.begin(), std_out.begin() + n, std::negate<UDD2>());
+            /*Check the results*/
+            cmpArrays(bolt_out, std_out);
+        }
+    }
+}
 
 int main(int argc, char* argv[])
 {

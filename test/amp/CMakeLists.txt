@@ -47,6 +47,7 @@ include_directories(
     ${OPENCL_INCLUDE_DIRS}) 
 # include_directories( ${BOLT_CL_TEST_DIR} )
 
+add_subdirectory( ForEachTest )
 add_subdirectory( BinarySearchTest )
 add_subdirectory( PairTest )
 add_subdirectory( GenerateTest )
