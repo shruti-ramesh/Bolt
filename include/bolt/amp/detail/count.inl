@@ -39,17 +39,125 @@
 #define COUNT_WAVEFRONT_SIZE 256
 
 namespace bolt {
-    namespace amp {
-        namespace detail {
+namespace amp {
+namespace detail {
 
-            //----
+namespace serial{
+
+    template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		std::random_access_iterator_tag)
+    {
+
+		return std::count_if(first,last,predicate);
+
+	}
+
+
+	template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		bolt::amp::device_vector_tag)
+    {
+
+		size_t n = (last - first);
+
+        typedef typename std::iterator_traits< InputIterator >::value_type iType;
+		typedef typename bolt::amp::iterator_traits<InputIterator>::difference_type rType;
+
+	    typename bolt::amp::device_vector< iType >::pointer countInputBuffer = first.getContainer( ).data( );
+        return  (rType) std::count_if(&countInputBuffer[first.m_Index],
+                       &countInputBuffer[first.m_Index + n], predicate) ;
+
+	}
+
+
+	template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		bolt::amp::fancy_iterator_tag)
+    {
+
+		return std::count_if(first,last,predicate);
+
+	}
+
+} // end of namespace serial
+
+#ifdef ENABLE_TBB
+namespace btbb{
+
+    template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		std::random_access_iterator_tag)
+    {
+
+		return  bolt::btbb::count_if(first, last,predicate);
+
+	}
+
+
+	template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		bolt::amp::device_vector_tag)
+    {
+
+		size_t n = (last - first);
+
+        typedef typename std::iterator_traits< InputIterator >::value_type iType;
+
+	    typename bolt::amp::device_vector< iType >::pointer countInputBuffer = first.getContainer( ).data( );
+        return  bolt::btbb::count_if(&countInputBuffer[first.m_Index],
+                         &countInputBuffer[first.m_Index + n] ,predicate);
+
+	}
+
+
+	template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		bolt::amp::fancy_iterator_tag)
+    {
+
+		return  bolt::btbb::count_if(first, last,predicate);
+
+	}
+
+} // end of namespace btbb
+#endif
+
+namespace amp{
+			//----
             // This is the base implementation of reduction that is called by all of the convenience wrappers below.
             // first and last must be iterators from a DeviceVector
             template<typename DVInputIterator, typename Predicate>
-            unsigned int count_enqueue(bolt::amp::control &ctl,
+            typename bolt::amp::iterator_traits<DVInputIterator>::difference_type
+		    count(bolt::amp::control &ctl,
                 const DVInputIterator& first,
                 const DVInputIterator& last,
-                const Predicate& predicate)
+                const Predicate& predicate,
+				bolt::amp::device_vector_tag)
             {
 				typedef typename std::iterator_traits< DVInputIterator >::value_type iType;				
 				const int szElements = static_cast< int >(std::distance(first, last));
@@ -160,202 +268,139 @@ namespace bolt {
                 }
             }
 
-            template<typename InputIterator, typename Predicate>
-            int count_detect_random_access(bolt::amp::control &ctl,
+	
+	template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		std::random_access_iterator_tag)
+    {
+
+		 int sz = static_cast<int>(last - first);
+
+         typedef typename std::iterator_traits<InputIterator>::value_type  iType;
+       	 
+         device_vector< iType, concurrency::array_view > dvInput( first, last, false, ctl );
+         return count( ctl, dvInput.begin(), dvInput.end(), predicate, bolt::amp::device_vector_tag() );
+
+	}
+
+
+	template<typename InputIterator, typename Predicate>
+    typename bolt::amp::iterator_traits<InputIterator>::difference_type
+        count(bolt::amp::control &ctl,
+        const InputIterator& first,
+        const InputIterator& last,
+        const Predicate& predicate,
+		bolt::amp::fancy_iterator_tag)
+    {
+		 return count(ctl, first, last, predicate, bolt::amp::device_vector_tag());
+
+	}
+			
+} // end of namespace amp
+
+    template<typename InputIterator, typename Predicate>
+    typename std::enable_if< 
+           !(std::is_same< typename std::iterator_traits< InputIterator>::iterator_category, 
+                         std::input_iterator_tag 
+                       >::value), typename bolt::amp::iterator_traits<InputIterator>::difference_type
+                       >::type
+    count( bolt::amp::control &ctl,
                 const InputIterator& first,
                 const InputIterator& last,
-                const Predicate& predicate,
-                std::input_iterator_tag)
-            {
+                const Predicate& predicate)
+    {
 
-                //  TODO:  It should be possible to support non-random_access_iterator_tag iterators,
-                // if we copied the data
-                //  to a temporary buffer.  Should we?
-                static_assert( false, "Bolt only supports random access iterator types" );
-            }
-
-
-            template<typename InputIterator, typename Predicate>
-            typename bolt::amp::iterator_traits<InputIterator>::difference_type
-                count_detect_random_access(bolt::amp::control &ctl,
-                const InputIterator& first,
-                const InputIterator& last,
-                const Predicate& predicate,
-                std::random_access_iterator_tag)
-            {
-                return count_pick_iterator( ctl, first, last, predicate,
-                                            std::iterator_traits< InputIterator >::iterator_category( ) );
-            }
-
-            // This template is called after we detect random access iterators
-            // This is called strictly for any non-device_vector iterator
-            template<typename InputIterator, typename Predicate>
-            typename bolt::amp::iterator_traits<InputIterator>::difference_type
-            count_pick_iterator(bolt::amp::control &ctl,
-                const InputIterator& first,
-                const InputIterator& last,
-                const Predicate& predicate,
-                std::random_access_iterator_tag )
-
-            {
-                /*************/
-                typedef typename std::iterator_traits<InputIterator>::value_type iType;
-                int szElements = static_cast< int >(last - first);
-                if (szElements == 0)
-                    return 0;
-                /*TODO - probably the forceRunMode should be replaced by getRunMode and setRunMode*/
-                // Its a dynamic choice. See the reduce Test Code
-                // What should we do if the run mode is automatic. Currently it goes to the last else statement
-                //How many threads we should spawn?
-                //Need to look at how to control the number of threads spawned.
-
-                bolt::amp::control::e_RunMode runMode = ctl.getForceRunMode();  // could be dynamic choice some day.
-
-                if (runMode == bolt::amp::control::Automatic)
-                {
-                    runMode = ctl.getDefaultPathToRun();
-                }
-                if (runMode == bolt::amp::control::SerialCpu)
-                {
-                      return (int) std::count_if(first,last,predicate);
-                }
-                else if (runMode == bolt::amp::control::MultiCoreCpu)
-                {
-#ifdef ENABLE_TBB
-                    return bolt::btbb::count_if(first,last,predicate);
-#else
-
-                    throw std::exception( "The MultiCoreCpu version of count function is not enabled to be built." );
-                    return 0;
-#endif
-                }
-                else
-
-                {
-                    device_vector< iType, concurrency::array_view > dvInput( first, last, false, ctl );
-                    return count_enqueue( ctl, dvInput.begin(), dvInput.end(), predicate );
-                }
-            };
-
-            // This template is called after we detect random access iterators
-            // This is called strictly for iterators that are derived from device_vector< T >::iterator
-            template<typename DVInputIterator, typename Predicate>
-            typename bolt::amp::iterator_traits<DVInputIterator>::difference_type
-            count_pick_iterator( bolt::amp::control &ctl,
-                                 const DVInputIterator& first,
-                                 const DVInputIterator& last,
-                                 const Predicate& predicate,
-                                 bolt::amp::device_vector_tag )
-            {
-                typedef typename std::iterator_traits<DVInputIterator>::value_type iType;
-                int szElements = static_cast< int > (last - first);
-                if (szElements == 0)
-                    return 0;
-
-                bolt::amp::control::e_RunMode runMode = ctl.getForceRunMode();  // could be dynamic choice some day.
-
-                if (runMode == bolt::amp::control::Automatic)
-                {
-                    runMode = ctl.getDefaultPathToRun();
-                }
-                if (runMode == bolt::amp::control::SerialCpu)
-                {
-                  typename bolt::amp::device_vector< iType >::pointer countInputBuffer = first.getContainer( ).data( );
-                   return  (int) std::count_if(&countInputBuffer[first.m_Index],
-                       &countInputBuffer[first.m_Index + szElements], predicate) ;
-
-                }
-
-                else if (runMode == bolt::amp::control::MultiCoreCpu)
-                {
-#ifdef ENABLE_TBB
-                   
-                   typename bolt::amp::device_vector< iType >::pointer countInputBuffer =  first.getContainer( ).data( );
-                     return  bolt::btbb::count_if(&countInputBuffer[first.m_Index],
-                         &countInputBuffer[first.m_Index + szElements] ,predicate);
-#else              
-                   throw std::exception( "The MultiCoreCpu version of count function is not enabled to be built." );
-                   
-                   return 0;
-#endif
-
-                }
-                else
-                {
-                  return  count_enqueue( ctl, first, last, predicate );
-                }
-            }
-
-            // This template is called after we detect random access iterators
-            // This is called strictly for iterators that are derived from fancy_iterator
-            template<typename DVInputIterator, typename Predicate>
-            typename bolt::amp::iterator_traits<DVInputIterator>::difference_type
-            count_pick_iterator( bolt::amp::control &ctl,
-                                 const DVInputIterator& first,
-                                 const DVInputIterator& last,
-                                 const Predicate& predicate,
-                                 bolt::amp::fancy_iterator_tag )
-            {
-                typedef typename std::iterator_traits<DVInputIterator>::value_type iType;
-                int szElements = static_cast< int > (last - first);
-                if (szElements == 0)
-                    return 0;
-
-                bolt::amp::control::e_RunMode runMode = ctl.getForceRunMode();  // could be dynamic choice some day.
-
-                if (runMode == bolt::amp::control::Automatic)
-                {
-                    runMode = ctl.getDefaultPathToRun();
-                }
-                if (runMode == bolt::amp::control::SerialCpu)
-                {
-                  return  (int) std::count_if(first, last, predicate) ;
-
-                }
-
-                else if (runMode == bolt::amp::control::MultiCoreCpu)
-                {
-#ifdef ENABLE_TBB
-                   
-                   return  bolt::btbb::count_if(first, last,predicate);
-#else              
-                   throw std::exception( "The MultiCoreCpu version of count function is not enabled to be built." );
-                   return 0;
-#endif
-
-                }
-                else
-                {
-                  return  count_enqueue( ctl, first, last, predicate );
-                }
-            }
-
-
-        } //end of detail
-
-        template<typename InputIterator, typename Predicate>
-        typename bolt::amp::iterator_traits<InputIterator>::difference_type
-            count_if(control& ctl, InputIterator first,
-            InputIterator last,
-            Predicate predicate)
+        typedef typename bolt::amp::iterator_traits<InputIterator>::difference_type rType;
+	    
+        size_t szElements = (size_t)(last - first);
+        if (szElements == 0)
+            return 0;
+	    
+        bolt::amp::control::e_RunMode runMode = ctl.getForceRunMode();  // could be dynamic choice some day.
+        if(runMode == bolt::amp::control::Automatic)
         {
-              return detail::count_detect_random_access(ctl, first, last, predicate,
-                std::iterator_traits< InputIterator >::iterator_category( ) );
-
+            runMode = ctl.getDefaultPathToRun();
+        }
+        switch(runMode)
+        {	    
+        case bolt::amp::control::MultiCoreCpu:
+        #ifdef ENABLE_TBB
+        {
+              return btbb::count( ctl, first, last,  predicate, 
+				  typename std::iterator_traits< InputIterator >::iterator_category( ) );
+	    
+        }
+        #else
+        {
+              throw std::runtime_error( "The MultiCoreCpu version of reduce is not enabled to be built! \n" );
+        }
+        #endif
+	    
+        case bolt::amp::control::SerialCpu:
+        {
+              return  serial::count( ctl, first, last,  predicate, 
+				  typename std::iterator_traits< InputIterator >::iterator_category( ) );
+	    
         }
 
-       template<typename InputIterator, typename Predicate>
-        typename bolt::amp::iterator_traits<InputIterator>::difference_type
-            count_if( InputIterator first,
-            InputIterator last,
-            Predicate predicate)
-        {
-
-         return count_if(bolt::amp::control::getDefault(), first, last, predicate);
-
+        default: /* Incase of runMode not set/corrupted */
+        {           
+             return  amp::count( ctl, first, last,  predicate, 
+				  typename std::iterator_traits< InputIterator >::iterator_category( ) );
         }
+	   
+       }
 
-    } //end of amp
+    }
+
+    template<typename InputIterator, typename Predicate>
+    typename std::enable_if< 
+           (std::is_same< typename std::iterator_traits< InputIterator>::iterator_category, 
+                         std::input_iterator_tag 
+                       >::value), typename bolt::amp::iterator_traits<InputIterator>::difference_type
+                       >::type
+    count( bolt::amp::control &ctl,
+                const InputIterator& first,
+                const InputIterator& last,
+                const Predicate& predicate)
+    {
+		      //  TODO:  It should be possible to support non-random_access_iterator_tag iterators, if we copied
+              //   the data to a temporary buffer.  Should we?
+              static_assert( std::is_same< typename std::iterator_traits< InputIterator>::iterator_category, 
+                                           std::input_iterator_tag >::value , 
+                             "Input vector cannot be of the type input_iterator_tag" );
+    }
+
+
+} //end of detail
+
+
+template<typename InputIterator, typename Predicate>
+typename bolt::amp::iterator_traits<InputIterator>::difference_type
+    count_if(control& ctl, InputIterator first,
+    InputIterator last,
+    Predicate predicate)
+{
+      return detail::count(ctl, first, last, predicate);
+}
+
+template<typename InputIterator, typename Predicate>
+typename bolt::amp::iterator_traits<InputIterator>::difference_type
+    count_if( InputIterator first,
+    InputIterator last,
+    Predicate predicate)
+{
+
+  return count_if(bolt::amp::control::getDefault(), first, last, predicate);
+
+}
+
+} //end of amp
+
 }//end of bolt
 
 #endif //COUNT_INL
